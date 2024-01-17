@@ -1,0 +1,79 @@
+[tool.poetry]
+name = "dwarf_copier"
+version = "0.1.0"
+description = "Utility to copy files from Dwarf II telescope to PC"
+authors = ["Duncan Booth <duncanb@cantab.net>"]
+license = "MIT"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Utilities"
+]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.12,<3.13"
+textual = "^0.47.1"
+bleak = "^0.21.1"
+anyio = "^4.2.0"
+pydantic = "^2.5.3"
+pyyaml = "^6.0.1"
+pydantic-settings = "^2.1.0"
+
+[tool.poetry.group.dev.dependencies]
+textual-dev = "^1.4.0"
+pytest = "^7.4.4"
+ruff = "^0.1.12"
+tox = "^4.12.0"
+pytest-mypy = "^0.10.3"
+pytest-enabler = "^3.0.0"
+mkdocs = "^1.5.3"
+mkdocstrings = {extras = ["python"], version = "^0.24.0"}
+mkdocs-material = "^9.5.3"
+mkdocs-gen-files = "^0.5.0"
+mkdocs-literate-nav = "^0.6.1"
+types-pyyaml = "^6.0.12.12"
+
+[tool.poetry.scripts]
+dwarf-copy = 'dwarf_copier.app:run'
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "" # "--mypy"
+testpaths = [
+    "tests",
+]
+pythonpath = ["src", "tests"]
+
+[tool.pytest-enabler.mypy]
+addopts = "--mypy"
+
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = ["."]
+packages = ["dwarf_copier"]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = false
+exclude = []
+verbosity = 0
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "W"]
+ignore = ["D107", "D102"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "D104"]
+"**/{tests,docs,tools}/*" = ["D"]
+
+[tool.ruff.pydocstyle]
+convention = "google"  # Accepts: "google", "numpy", or "pep257".
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

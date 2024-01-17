@@ -1,0 +1,24 @@
+general:
+  theme: light
+
+sources:
+  - name: MicroSD
+    type: Drive
+    path: D:\DWARF_II\Astronomy
+  - name: WiFi Direct
+    type: FTP
+    ip_address: 192.168.88.1
+    path: /Astronomy
+  - name: Home WiFi
+    type: FTP
+    ip_address: 192.168.1.217
+    path: /Astronomy
+targets:
+  - name: Backup
+    path: C:\Backup\Dwarf_II\
+  - name: Astrophotography
+    path: C:\Astrophotography\
+formats:
+  - name: Backup
+  - name: Siril
+    
