@@ -47,6 +47,8 @@ class DwarfCopyApp(App):
     def on_mount(self) -> None:
         """Triggered when the app is opened."""
         self.dark = self.config.general.theme == "dark"
+        self.title = "Dwarf Copy"
+        # self.sub_title = "[no source]"
         self.switch_mode("dashboard")
 
     def action_toggle_dark(self) -> None:
@@ -54,7 +56,14 @@ class DwarfCopyApp(App):
         self.dark = not self.dark
 
     def action_request_quit(self) -> None:
-        self.push_screen(QuitScreen())
+        """Action to display the quit dialog."""
+
+        def check_quit(confirm_quit: bool) -> None:
+            """Called when QuitScreen is dismissed."""
+            if confirm_quit:
+                self.exit()
+
+        self.push_screen(QuitScreen(), check_quit)
 
     @property
     def config(self) -> ConfigurationModel:

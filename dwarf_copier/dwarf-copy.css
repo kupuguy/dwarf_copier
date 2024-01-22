@@ -1,25 +1,75 @@
+
+Header {
+    background: $primary-background;
+}
+
 QuitScreen {
     align: center middle;
+
+    #dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 60;
+        height: 11;
+        border: thick $secondary-background 80%;
+        background: $surface;
+    }
+
+    #question {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+
+    Button {
+        width: 100%;
+    }
 }
 
-#dialog {
-    grid-size: 2;
-    grid-gutter: 1 2;
-    grid-rows: 1fr 3;
-    padding: 0 1;
-    width: 60;
-    height: 11;
-    border: thick $background 80%;
-    background: $surface;
-}
+# Source/target selection
+SelectSourceTarget {
+    .source_selection {
+        layout: grid;
+        grid-size: 2;
+        grid-rows: 3 auto 5 3;
+        grid-gutter: 1 1;
+        align: center top;
+    }
 
-#question {
-    column-span: 2;
-    height: 1fr;
-    width: 1fr;
-    content-align: center middle;
-}
+    #top_text {
+        column-span: 2;
+        tint: $secondary-background 40%;
+        width: 100%;
+        height: 100%;
+        content-align: center middle;
+    }
 
-Button {
-    width: 100%;
+    .centered {
+        text-align: right;
+        tint: yellow 50%;
+    }
+
+    #next {
+        width: 10;
+        background: $success;
+    }
+
+    #buttonbar {
+        width: 100%;
+        align: right bottom;
+    }
+
+    RadioSet:dark {
+        border: round $secondary-background-darken-1;
+    }
+    RadioSet:light {
+        border: round $secondary-background-lighten-1;
+    }
+
+    RadioSet:focus {
+        border: round $accent;
+    }
 }

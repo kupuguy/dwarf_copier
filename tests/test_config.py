@@ -1,3 +1,4 @@
+# pylint: disable=redefined-outer-name,missing-module-docstring,missing-function-docstring
 import textwrap
 from pathlib import Path
 
@@ -27,8 +28,10 @@ def config_file(tmp_path: Path) -> Path:
         targets:
         - name: Backup
           path: C:\\Backup\\Dwarf_II\\
+          format: Backup
         - name: Astrophotography
           path: C:\\Astrophotography\\
+          format: Siril
         formats:
         - name: Backup
         - name: Siril"""

@@ -1,11 +1,11 @@
 """Model dialog to confirm leaving the app."""
 from textual.app import ComposeResult
 from textual.containers import Grid
-from textual.screen import Screen
+from textual.screen import ModalScreen
 from textual.widgets import Button, Label
 
 
-class QuitScreen(Screen):
+class QuitScreen(ModalScreen):
     """Screen with a dialog to quit."""
 
     BINDINGS = [
@@ -23,12 +23,6 @@ class QuitScreen(Screen):
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "quit":
-            self.app.exit()
+            self.dismiss(True)
         else:
-            self.app.pop_screen()
-
-    def action_quit(self) -> None:
-        self.app.exit()
-
-    def action_cancel(self) -> None:
-        self.app.pop_screen()
+            self.dismiss(False)

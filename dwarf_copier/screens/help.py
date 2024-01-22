@@ -5,11 +5,11 @@ from pathlib import Path
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.reactive import var
-from textual.screen import Screen
+from textual.screen import ModalScreen
 from textual.widgets import Footer, MarkdownViewer
 
 
-class HelpScreen(Screen):
+class HelpScreen(ModalScreen):
     """Need some help? Find it here."""
 
     BINDINGS = [
@@ -23,7 +23,7 @@ class HelpScreen(Screen):
         Binding(key="s", show=False, action="noop"),
     ]
 
-    path = var(Path(__file__).parent / "help-text.md")
+    path = var(Path(__file__).parent.parent / "help-text.md")
 
     @property
     def markdown_viewer(self) -> MarkdownViewer:
@@ -52,7 +52,6 @@ class HelpScreen(Screen):
     async def action_noop(self) -> None:
         """Do nothing."""
         logging.info("Just lazing around...")
-        pass
 
     def action_done(self) -> None:
         """Dismiss the help."""
