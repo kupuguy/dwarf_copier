@@ -1,0 +1,13 @@
+{
+    "DEC": -5.270722222,
+    "RA": 5.592305556,
+    "binning": "1*1",
+    "exp": "5",
+    "format": "FITS",
+    "gain": 60,
+    "ir": "CUT",
+    "shotsStacked": 16,
+    "shotsTaken": 113,
+    "shotsToTake": 999,
+    "target": "M43"
+}

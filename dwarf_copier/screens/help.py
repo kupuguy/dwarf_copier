@@ -1,5 +1,4 @@
 """Help screen."""
-import logging
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -51,9 +50,9 @@ class HelpScreen(ModalScreen):
 
     async def action_noop(self) -> None:
         """Do nothing."""
-        logging.info("Just lazing around...")
+        self.log.info("Just lazing around...")
 
     def action_done(self) -> None:
         """Dismiss the help."""
-        logging.info("I'm out of here!")
+        self.log.info("I'm out of here!")
         self.app.pop_screen()

@@ -2,6 +2,9 @@ general:
   theme: light
 
 sources:
+  - name: Backup
+    type: Drive
+    path: "C:\\Backup\\Dwarf_II_2024_01_18\\"
   - name: MicroSD
     type: Drive
     path: D:\DWARF_II\Astronomy
@@ -25,4 +28,3 @@ formats:
     description: Copy files without changes
   - name: Siril
     description: Copy into Siril directory structure
-    

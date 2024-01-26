@@ -1,6 +1,7 @@
 """Main application class for dwarf-copy."""
 
 
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer, Header

@@ -10,13 +10,14 @@ class ShotsInfo(BaseModel):
     """Information about shots contained within a session directory."""
 
     dec: float = Field(
-        description="Declination (or 0.0 if not set). Example: 22.01469444"
+        description="Declination (or 0.0 if not set). Example: 22.01469444", alias="DEC"
     )
     ra: float = Field(
-        description="Right ascension (or 0.0 if not set). Example: 5.575916667"
+        description="Right ascension (or 0.0 if not set). Example: 5.575916667",
+        alias="RA",
     )
     binning: str = Field(description="1x1 for 4k, 2x2 for 2k images.")
-    exp: float = Field(description="Exposure, e.g.: 15 or 0.001")
+    exp: str = Field(description="Exposure, e.g.: 15 or 0.001")
     format: str = Field(description="Format: FITS or TIFF")
     gain: int = Field(description="Gain. Example: 80")
     ir: str = Field(description="IR filter CUT or PASS")
@@ -34,5 +35,5 @@ class PhotoSession(BaseModel):
     """
 
     path: Path
-    info: ShotsInfo | None = None
+    info: ShotsInfo
     date: datetime

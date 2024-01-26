@@ -1,13 +1,20 @@
 """Driver for photo files accessible via a file path."""
 
-
 import multiprocessing as mp
+import re
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Callable
 
-from dwarf_copier.model import PhotoSession
+from dwarf_copier.model import PhotoSession, ShotsInfo
+
+FOLDER_PATTERN = (
+    "DWARF_RAW_<target>_EXP_<exp>_GAIN_<gain>_"
+    "<year>-<mon>-<day>-<hour>-<min>-<sec>-<millisec>"
+)
+SHOTS_INFO = "shotsInfo.json"
 
 
 class Cmd(Enum):
@@ -35,10 +42,11 @@ class Driver:
     callbacks (which must be thread-safe) e.g. post_message.
     """
 
-    queue: mp.queues.Queue[Command]
+    queue: mp.Queue
 
-    def __init__(self) -> None:
+    def __init__(self, root: Path) -> None:
         self.queue = mp.Queue()
+        self.root = root
 
     def send_dirlist(
         self, path: Path, callback: Callable[[PhotoSession | None], None]
@@ -51,3 +59,33 @@ class Driver:
 
     def run(self, num_workers: int = 1) -> None:
         ...
+
+    def _folder_regex(self, template: str) -> re.Pattern:
+        """Convert the 'friendly' folder pattern into a regex."""
+        pattern = re.compile(
+            re.sub("<([a-zA-Z0-9]+)>", "(?P<\\1>.*?)", re.escape(template)) + "$"
+        )
+        return pattern
+
+    def list_dirs(self, callback: Callable[[PhotoSession | None], None]) -> None:
+        pattern = self._folder_regex(FOLDER_PATTERN)
+        for p in self.root.glob("Astronomy/DWARF_RAW*"):
+            if (
+                not p.is_dir()
+                or not (p / SHOTS_INFO).exists()
+                or (m := pattern.match(p.name)) is None
+            ):
+                continue
+            info = ShotsInfo.model_validate_json((p / SHOTS_INFO).read_text())
+
+            year, mon, day, hour, min, sec, millisec = [
+                int(s)
+                for s in m.group("year", "mon", "day", "hour", "min", "sec", "millisec")
+            ]
+            session = PhotoSession(
+                path=p,
+                info=info,
+                date=datetime(year, mon, day, hour, min, sec, millisec * 1000),
+            )
+            callback(session)
+        callback(None)

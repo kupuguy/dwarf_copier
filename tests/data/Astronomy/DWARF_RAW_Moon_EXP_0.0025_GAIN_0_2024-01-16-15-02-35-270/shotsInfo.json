@@ -1,0 +1,13 @@
+{
+    "DEC": 0.0,
+    "RA": 0.0,
+    "binning": "1*1",
+    "exp": "1/400",
+    "format": "FITS",
+    "gain": 0,
+    "ir": "CUT",
+    "shotsStacked": 1,
+    "shotsTaken": 9,
+    "shotsToTake": 999,
+    "target": "Moon"
+}

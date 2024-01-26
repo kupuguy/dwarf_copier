@@ -40,7 +40,7 @@ class ConfigSource(BaseModel):
         ),
     ] = SourceType.DRIVE
     path: Annotated[
-        str, Field(default="/DWARF_II", description="Path to the DWARF_II image files")
+        Path, Field(default="/DWARF_II", description="Path to the DWARF_II image files")
     ]
     ip_address: Annotated[
         str | None, Field("", description="Network address for FTP connections")

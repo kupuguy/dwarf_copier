@@ -36,11 +36,10 @@ class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
         yield Header()
         with Container(classes="source_selection"):
             yield Label("Select source and destination for image copy:", id="top_text")
-            logging.warn("Creating sources")
             with RadioSet(id="sources") as rs:
                 rs.border_title = "Source"
                 for src in self.config.sources:
-                    logging.warn(
+                    logging.info(
                         "Selected: %s, src %r, self.source %r",
                         src == self.source,
                         src,
