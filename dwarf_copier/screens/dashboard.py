@@ -63,7 +63,7 @@ class DashboardScreen(Screen):
         self.log.warning("State step complete")
 
         while await self.step():
-            self.notify(f"{self._current=}")
+            pass
 
     async def step(self) -> bool:
         if self._current is None:

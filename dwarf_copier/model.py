@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from string import Template
 
 from pydantic import BaseModel, Field
 
@@ -37,3 +38,7 @@ class PhotoSession(BaseModel):
     path: Path
     info: ShotsInfo
     date: datetime
+
+    def format(self, template: Template) -> str:
+        d = {"name": self.info.target}
+        return template.substitute(d)

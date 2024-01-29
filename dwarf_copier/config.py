@@ -7,12 +7,27 @@ import logging
 import os
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Sequence
+from string import Template
+from typing import Annotated, Literal, Sequence
 
 import rich
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, GetPydanticSchema
+from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ConfigTemplate = Annotated[
+    Template,
+    GetPydanticSchema(
+        lambda _tp, handler: core_schema.no_info_after_validator_function(
+            lambda s: Template(s),
+            handler(str),
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                lambda t: t.template
+            ),
+        )
+    ),
+]
 
 
 class SourceType(StrEnum):
@@ -20,6 +35,7 @@ class SourceType(StrEnum):
 
     DRIVE = "Drive"
     FTP = "FTP"
+    MTP = "MTP"
 
 
 class ConfigGeneral(BaseModel):
@@ -28,20 +44,46 @@ class ConfigGeneral(BaseModel):
     theme: str = Field(default="dark", description="App theme")
 
 
-class ConfigSource(BaseModel):
+class ConfigSourceBase(BaseModel):
     """Defines a source of Dwarf data, may be a local path or a network drive."""
 
     name: Annotated[str, Field(description="Displayed name for the source")]
-    type: Annotated[
-        SourceType,
-        Field(
-            default=SourceType.DRIVE,
-            description="The type of source, e.g. a filesystem or an FTP connection",
-        ),
-    ] = SourceType.DRIVE
     path: Annotated[
         Path, Field(default="/DWARF_II", description="Path to the DWARF_II image files")
     ]
+    link: Annotated[
+        bool,
+        Field(
+            default=False,
+            description="Try to create links instead of copying if link is true "
+            "for both source and target.",
+        ),
+    ] = False
+
+    darks: list[ConfigTemplate] = Field(
+        default=[], description="List of templated paths that may contain darks"
+    )
+
+    def describe(self) -> str:
+        """Return formatted description of the source for display to the user."""
+        return "\n".join(
+            [
+                f" Source: [b]{self.name}[/b]",
+                f"   Path: [i]{self.path}[/i]",
+            ]
+        )
+
+
+class ConfigSourceDrive(ConfigSourceBase):
+    """Defines a source of Dwarf data, may be a local path or a network drive."""
+
+    type: Literal[SourceType.DRIVE] = SourceType.DRIVE
+
+
+class ConfigSourceFTP(ConfigSourceBase):
+    """Defines a source of Dwarf data, may be a local path or a network drive."""
+
+    type: Literal[SourceType.FTP] = SourceType.FTP
     ip_address: Annotated[
         str | None, Field("", description="Network address for FTP connections")
     ] = ""
@@ -56,17 +98,20 @@ class ConfigSource(BaseModel):
         """Return formatted description of the source for display to the user."""
         return "\n".join(
             [
-                s
-                for s in [
-                    f" Source: [b]{self.name}[/b]",
-                    f"IP Addr: [i]{self.ip_address}[/i]"
-                    if self.type == SourceType.FTP
-                    else None,
-                    f"   Path: [i]{self.path}[/i]",
-                ]
-                if s is not None
+                f" Source: [b]{self.name}[/b]",
+                f"IP Addr: [i]{self.ip_address}[/i]",
+                f"   Path: [i]{self.path}[/i]",
             ]
         )
+
+
+class ConfigSourceMTP(ConfigSourceBase):
+    """Defines a source of Dwarf data, may be a local path or a network drive."""
+
+    type: Literal[SourceType.FTP] = SourceType.FTP
+
+
+ConfigSource = ConfigSourceDrive | ConfigSourceFTP | ConfigSourceMTP
 
 
 class ConfigTarget(BaseModel):
@@ -75,6 +120,14 @@ class ConfigTarget(BaseModel):
     name: str
     path: str
     format: str
+    link: Annotated[
+        bool,
+        Field(
+            default=True,
+            description="Try to create links instead of copying if link is true "
+            "for both source and target.",
+        ),
+    ] = False
 
 
 class ConfigFormat(BaseModel):
@@ -92,9 +145,12 @@ class ConfigurationModel(BaseModel):
     general: Annotated[
         ConfigGeneral, Field(default_factory=ConfigGeneral)
     ] = ConfigGeneral()
+
     sources: Annotated[
-        list[ConfigSource], Field(default_factory=list, description="List of sources")
-    ] = [ConfigSource(name="MicroSD", path="D:\\DWARF_II\\Astronomy")]
+        list[ConfigSource],
+        Field(default_factory=list, description="List of sources"),
+    ] = [ConfigSourceDrive(name="MicroSD", path="D:\\DWARF_II")]
+
     targets: Annotated[
         list[ConfigTarget], Field(default_factory=list, description="List of targets")
     ] = [
@@ -148,24 +204,31 @@ sources:
   - name: MicroSD
     type: Drive
     path: D:\DWARF_II\Astronomy
+    link: False
   - name: WiFi Direct
     type: FTP
     ip_address: 192.168.88.1
     path: /Astronomy
+    link: False
   - name: Home WiFi
     type: FTP
     ip_address: 192.168.1.217
     path: /Astronomy
+    link: False
 targets:
   - name: Backup
     path: C:\Backup\Dwarf_II\
     format: Backup
+    link: False
   - name: Astrophotography
     path: C:\Astrophotography\
     format: Siril
+    link: True
 formats:
   - name: Backup
+    template: {name}
   - name: Siril
+    template:
 """
 
 
