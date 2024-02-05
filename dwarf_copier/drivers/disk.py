@@ -8,6 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable
 
+from dwarf_copier.config import ConfigFormat
 from dwarf_copier.model import PhotoSession, ShotsInfo
 
 FOLDER_PATTERN = (
@@ -89,3 +90,25 @@ class Driver:
             )
             callback(session)
         callback(None)
+
+    def prepare(
+        self,
+        format: ConfigFormat,
+        session: PhotoSession,
+        target_path: Path,
+    ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
+        # target_path = target.path / session.format(format.path)
+        mkdirs = [target_path / d for d in format.directories]
+        links: dict[Path, str] = {}
+        for op in format.link_or_copy:
+            for p in session.path.glob(op.source):
+                if p not in links:
+                    links[p] = session.format(op.destination, name=p.name)
+
+        copies: dict[Path, str] = {}
+        for op in format.copy_only:
+            for p in session.path.glob(op.source):
+                if p not in copies and p not in links:
+                    copies[p] = session.format(op.destination, name=p.name)
+
+        return mkdirs, links, copies

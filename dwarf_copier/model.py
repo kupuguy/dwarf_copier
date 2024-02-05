@@ -1,6 +1,7 @@
 """Data models."""
 
 from datetime import datetime
+from fractions import Fraction
 from pathlib import Path
 from string import Template
 
@@ -27,6 +28,11 @@ class ShotsInfo(BaseModel):
     shotsToTake: int = Field(description="Number of shots programmed to take e.g.: 300")
     target: str = Field(description='Name of target, e.g. "M1"')
 
+    @property
+    def exp_decimal(self) -> str:
+        exp = Fraction(self.exp)
+        return str(int(exp) if exp.is_integer() else float(exp))
+
 
 class PhotoSession(BaseModel):
     """Data for a single photo session.
@@ -39,6 +45,21 @@ class PhotoSession(BaseModel):
     info: ShotsInfo
     date: datetime
 
-    def format(self, template: Template) -> str:
-        d = {"name": self.info.target}
+    def format(self, template: Template, name: str = "") -> str:
+        # TODO: make this lazier
+        d = {
+            "bin": "1" if self.info.binning == "1x1" else "2",
+            "exp": self.info.exp_decimal,
+            "gain": self.info.gain,
+            "Y": f"{self.date.year:02}",
+            "M": f"{self.date.month:02}",
+            "d": f"{self.date.day:02}",
+            "H": f"{self.date.hour:02}",
+            "m": f"{self.date.minute:02}",
+            "S": f"{self.date.second:02}",
+            "ms": f"{self.date.microsecond//1000:03}",
+            "target": self.info.target,
+            "target_": f"{self.info.target}_" if self.info.target else "",
+            "name": name,
+        }
         return template.substitute(d)

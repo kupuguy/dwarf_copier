@@ -30,13 +30,14 @@ targets:
 formats:
   - name: Backup
     description: Copy files without changes
-    path: "DWARF_RAW_${target}_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${s}-${ms}"
+    path: "DWARF_RAW_${target_}EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${s}-${ms}"
     darks: "../DWARF_DARKS_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}"
-    copy:
-      "*": "${name}"
+    copy_only:
+      - source: "*"
+        destination: "${name}"
   - name: Siril
     description: Copy into Siril directory structure
-    path: "${name}_EXP_${exp}_GAIN_${gain}_${Y}_${M}_${d}"
+    path: "${target_}EXP_${exp}_GAIN_${gain}_${Y}_${M}_${d}"
     darks: "darks"
     directories:
       - darks
@@ -44,7 +45,12 @@ formats:
       - biases
       - flats
     link_or_copy:
-      "*.fits": "lights/${name}"
-      "*.jpg": "${target}-${name}"
-      "*.png": "${target}-${name}"
-      "shotsInfo.json": "shotsInfo.json"
+      - source: "shotsInfo.json"
+        destination: "shotsInfo.json"
+      - source: "*.fits"
+        destination: "lights/${name}"
+      - source: "*.jpg"
+        destination: "${target}-${name}"
+      - source: "*.png"
+        destination: "${target}-${name}"
+        

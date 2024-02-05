@@ -38,6 +38,7 @@ Directory and filenames in the configuration are given as templates, use "$name"
 
 The following names are available for use in templates.
 
+* bin - 1 for 1x1 binning else 2 for 2x2 binning
 * exp - Exposure (as a decimal rather than a fraction for exposures less than 1 second)
 * gain - Gain
 * Y - 4 digit year
@@ -48,6 +49,7 @@ The following names are available for use in templates.
 * S - 2 digit seconds
 * ms - 3 digit milliseconds
 * target - the target that was being tracked (if any)
+* target_ - the target followed by an underscore or nothing if there is not target
 * name - original filename
 
 ### General

@@ -51,7 +51,7 @@ addopts = "--mypy"
 
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 mypy_path = ["."]
 packages = ["dwarf_copier"]
 warn_return_any = true

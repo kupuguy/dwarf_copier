@@ -8,11 +8,18 @@ import os
 from enum import StrEnum
 from pathlib import Path
 from string import Template
-from typing import Annotated, Literal, Sequence
+from typing import Annotated, Literal, Self, Sequence
 
 import rich
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, GetPydanticSchema
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    GetPydanticSchema,
+    field_validator,
+    model_validator,
+)
 from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -118,7 +125,7 @@ class ConfigTarget(BaseModel):
     """Destination folder to contain the copied images."""
 
     name: str
-    path: str
+    path: Path
     format: str
     link: Annotated[
         bool,
@@ -129,12 +136,37 @@ class ConfigTarget(BaseModel):
         ),
     ] = False
 
+    @field_validator("path")
+    @classmethod
+    def valid_path(cls, v: str | Path) -> Path:
+        return Path(v).expanduser().resolve()
+
+
+class ConfigCopy(BaseModel):
+    """Single copy or link."""
+
+    source: str = Field(description="Wildcard pattern for matching source files")
+    destination: ConfigTemplate = Field(description="Target filename")
+
 
 class ConfigFormat(BaseModel):
     """File layout for target."""
 
     name: str
     description: str = ""
+    path: ConfigTemplate = Field(description="Destination directory")
+    darks: ConfigTemplate = Field(
+        description="Destination for darks relative to <path>"
+    )
+    directories: list[str] = Field(
+        default=[], description="List of directories to create relative to <path>"
+    )
+    link_or_copy: list[ConfigCopy] = Field(
+        default=[], description="Groups of files to link or copy"
+    )
+    copy_only: list[ConfigCopy] = Field(
+        default=[], description="List of files to copy, never link"
+    )
 
 
 class ConfigurationModel(BaseModel):
@@ -159,8 +191,14 @@ class ConfigurationModel(BaseModel):
         )
     ]
     formats: Annotated[
-        list[ConfigFormat], Field(default_factory=list, description="List of formats")
-    ] = [ConfigFormat(name="Siril")]
+        list[ConfigFormat],
+        Field(default_factory=list, description="List of formats"),
+    ] = [ConfigFormat(name="Siril", path="${name}", darks="darks")]
+
+    _formats: dict[str, ConfigFormat]
+
+    def get_format(self, name: str) -> ConfigFormat:
+        return self._formats[name]
 
     def describe_target(self, target: ConfigTarget) -> rich.text.Text:
         """Return formatted description of the source for display to the user."""
@@ -172,12 +210,21 @@ class ConfigurationModel(BaseModel):
         text.append("Target: ")
         text.append(target.name, style="bold")
         text.append("\n   Path: ")
-        text.append(target.path, style="italic")
+        text.append(str(target.path), style="italic")
         if fmt is None:
             text.append("\nBad format", style="error")
         else:
             text.append("\n" + fmt.description, style="italic")
         return text
+
+    @model_validator(mode="after")
+    def validate_targets(self) -> Self:
+        self._formats: dict[str, ConfigFormat] = {f.name: f for f in self.formats}
+        for t in self.targets:
+            if t.format not in self._formats:
+                raise ValueError(f"Target {t.name} ahas invalid format {t.format}")
+
+        return self
 
 
 class Settings(BaseSettings):
@@ -196,40 +243,62 @@ class Settings(BaseSettings):
     ]
 
 
-DEFAULT_CONFIG = r"""
-general:
-  theme: dark
-
-sources:
-  - name: MicroSD
-    type: Drive
-    path: D:\DWARF_II\Astronomy
-    link: False
-  - name: WiFi Direct
-    type: FTP
-    ip_address: 192.168.88.1
-    path: /Astronomy
-    link: False
-  - name: Home WiFi
-    type: FTP
-    ip_address: 192.168.1.217
-    path: /Astronomy
-    link: False
-targets:
-  - name: Backup
-    path: C:\Backup\Dwarf_II\
-    format: Backup
-    link: False
-  - name: Astrophotography
-    path: C:\Astrophotography\
-    format: Siril
-    link: True
-formats:
-  - name: Backup
-    template: {name}
-  - name: Siril
-    template:
-"""
+DEFAULT_SD_PATH = Path(r"D:\DWARF_II\Astronomy" if os.name == "nt" else "/mnt/sdcard")
+DEFAULT_BACKUP_PATH = (
+    Path(r"C:\Backup\Dwarf_II" if os.name == "nt" else "~/Backup/Dwarf_II")
+    .expanduser()
+    .resolve()
+)
+DEFAULT_SIRIL_PATH = (
+    Path(r"C:\Astrophotography" if os.name == "nt" else "~/Astrophotography")
+    .expanduser()
+    .resolve()
+)
+DEFAULT_CONFIG = ConfigurationModel(
+    general=ConfigGeneral(),
+    sources=[
+        ConfigSourceDrive(name="MicroSD", path=DEFAULT_SD_PATH),
+        ConfigSourceFTP(
+            name="WiFi Direct",
+            ip_address="192.168.88.1",
+            path=Path("/Astronomy"),
+            type=SourceType.FTP,
+        ),
+        ConfigSourceDrive(
+            name="Backup",
+            path=DEFAULT_BACKUP_PATH,
+            darks=["../DWARF_DARKS_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}"],
+        ),
+    ],
+    targets=[
+        ConfigTarget(name="Backup", path=DEFAULT_BACKUP_PATH, format="Backup"),
+        ConfigTarget(
+            name="Astrophotography", path=DEFAULT_SIRIL_PATH, format="Siril", link=True
+        ),
+    ],
+    formats=[
+        ConfigFormat(
+            name="Backup",
+            description="Copy files without changes",
+            path="DWARF_RAW_${target_}EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${s}-${ms}",
+            darks="../DWARF_DARKS_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}",
+            copy_only=[ConfigCopy(source="*", destination="${name}")],
+        ),
+        ConfigFormat(
+            name="Siril",
+            description="Copy into Siril directory structure",
+            path="${name}_EXP_${exp}_GAIN_${gain}_${Y}_${M}_${d}",
+            darks="darks",
+            directories=["darks", "lights", "flats", "biases"],
+            link_or_copy=[
+                ConfigCopy(source="shotsInfo.json", destination="shotsInfo.json"),
+                ConfigCopy(source="*.fits", destination="lights/${name}"),
+                ConfigCopy(source="*.jpg", destination="${target}-${name}"),
+                ConfigCopy(source="*.png", destination="${target}-${name}"),
+            ],
+        ),
+    ],
+)
 
 
 def load_config(
@@ -254,7 +323,7 @@ def load_config(
             return ConfigurationModel(**data)
 
     logging.warning("No configuration found, using default")
-    default_data = yaml.safe_load(DEFAULT_CONFIG)
-    config = ConfigurationModel(**default_data)
+
+    config = DEFAULT_CONFIG.model_copy(deep=True)
     logging.warning("Config %r", config)
     return config

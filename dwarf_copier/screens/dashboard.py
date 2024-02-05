@@ -9,9 +9,10 @@ from textual.screen import Screen
 from textual.widgets import Footer, Header
 from textual.worker import Worker
 
-from dwarf_copier.config import ConfigSource, ConfigTarget
+from dwarf_copier.config import ConfigSource, ConfigTarget, ConfigurationModel
 from dwarf_copier.drivers import disk
 from dwarf_copier.model import PhotoSession
+from dwarf_copier.screens.copy_files import CopyFiles
 from dwarf_copier.screens.show_sessions import ShowSessions
 
 from .source_target import SelectSourceTarget
@@ -25,6 +26,7 @@ class DashboardScreen(Screen):
     This screen shows a list of Dwarf Telescopes from which we can copy files.
     """
 
+    config: ConfigurationModel
     source: ConfigSource | None = None
     target: ConfigTarget | None = None
     driver: disk.Driver | None = None
@@ -107,5 +109,14 @@ class DashboardScreen(Screen):
     async def when_copy_files(self) -> StateMachineStep | None:
         if not (self.source and self.target and self.sessions):
             return self.when_select_sessions
-        self.log.error("Not yet implemented!")
+
+        screen = CopyFiles(
+            self.config,
+            self.source,
+            self.target,
+            self.sessions,
+            self.config.get_format(self.target.format),
+        )
+        result = await self.app.push_screen_wait(screen=screen)
+        self.notify(str(result))
         return None
