@@ -5,6 +5,11 @@ __pycache__
 # Generated
 /.coverage
 /dist/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
 
 # IDE
 /.vscode/*

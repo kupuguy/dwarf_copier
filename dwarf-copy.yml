@@ -30,7 +30,7 @@ targets:
 formats:
   - name: Backup
     description: Copy files without changes
-    path: "DWARF_RAW_${target_}EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${s}-${ms}"
+    path: "DWARF_RAW_${target_}EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${S}-${ms}"
     darks: "../DWARF_DARKS_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}"
     copy_only:
       - source: "*"

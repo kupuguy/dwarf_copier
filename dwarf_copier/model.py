@@ -3,6 +3,7 @@
 from datetime import datetime
 from fractions import Fraction
 from pathlib import Path
+from queue import Queue
 from string import Template
 
 from pydantic import BaseModel, Field
@@ -27,6 +28,10 @@ class ShotsInfo(BaseModel):
     shotsTaken: int = Field(description="Number of shots taken e.g. 287")
     shotsToTake: int = Field(description="Number of shots programmed to take e.g.: 300")
     target: str = Field(description='Name of target, e.g. "M1"')
+
+    @property
+    def exp_fraction(self) -> Fraction:
+        return Fraction(self.exp)
 
     @property
     def exp_decimal(self) -> str:
@@ -62,4 +67,55 @@ class PhotoSession(BaseModel):
             "target_": f"{self.info.target}_" if self.info.target else "",
             "name": name,
         }
-        return template.substitute(d)
+        return template.safe_substitute(d)
+
+
+class QuitCommand(BaseModel):
+    """Sent when we're done copying to shut down workers."""
+
+    @property
+    def description(self) -> str:
+        """Progress tracking."""
+        return "Finished"
+
+
+class CopyOrLinkBase(BaseModel):
+    """Common parts of Copy and Link commands."""
+
+    source: Path
+    dest: Path
+    source_folder: Path
+    working_folder: Path
+
+    @property
+    def source_relative(self) -> Path:
+        """Source file path relative to source folder."""
+        return self.source.relative_to(self.source_folder)
+
+    @property
+    def dest_relative(self) -> Path:
+        """Destination file path relative to working folder."""
+        return self.dest.relative_to(self.working_folder)
+
+
+class CopyCommand(CopyOrLinkBase):
+    """Copy a single file."""
+
+    @property
+    def description(self) -> str:
+        """Progress tracking."""
+        return f"[b]Copy[/b] {self.source_relative} -> {self.dest_relative}"
+
+
+class LinkCommand(CopyOrLinkBase):
+    """Create a symlink."""
+
+    @property
+    def description(self) -> str:
+        """Progress tracking."""
+        return f"[b]Link[/b] {self.source_relative} -> {self.dest_relative}"
+
+
+BaseCommand = QuitCommand | CopyCommand | LinkCommand
+CommandQueue = Queue[BaseCommand]
+QUIT_COMMAND = QuitCommand()

@@ -10,7 +10,7 @@ from pathlib import Path
 from string import Template
 from typing import Annotated, Literal, Self, Sequence
 
-import rich
+import rich.text
 import yaml
 from pydantic import (
     BaseModel,
@@ -49,6 +49,7 @@ class ConfigGeneral(BaseModel):
     """General configuration."""
 
     theme: str = Field(default="dark", description="App theme")
+    workers: int = Field(default=4, description="Number of workers to copy files.")
 
 
 class ConfigSourceBase(BaseModel):
@@ -197,6 +198,18 @@ class ConfigurationModel(BaseModel):
 
     _formats: dict[str, ConfigFormat]
 
+    def get_source(self, name: str) -> ConfigSource:
+        for s in self.sources:
+            if s.name == name:
+                return s
+        raise KeyError(f"Source {name} does not exist")
+
+    def get_target(self, name: str) -> ConfigTarget:
+        for t in self.targets:
+            if t.name == name:
+                return t
+        raise KeyError(f"Target {name} does not exist")
+
     def get_format(self, name: str) -> ConfigFormat:
         return self._formats[name]
 
@@ -280,7 +293,7 @@ DEFAULT_CONFIG = ConfigurationModel(
         ConfigFormat(
             name="Backup",
             description="Copy files without changes",
-            path="DWARF_RAW_${target_}EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${s}-${ms}",
+            path="DWARF_RAW_${target_}EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${S}-${ms}",
             darks="../DWARF_DARKS_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}",
             copy_only=[ConfigCopy(source="*", destination="${name}")],
         ),

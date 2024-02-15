@@ -1,25 +1,71 @@
 """Model dialog to confirm leaving the app."""
 
+from dataclasses import dataclass, field
 from typing import Callable
 
+from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Footer, Header
+from textual.widgets.data_table import ColumnKey, RowKey
 
 from dwarf_copier.config import ConfigSource, ConfigTarget, ConfigurationModel
 from dwarf_copier.drivers import disk
 from dwarf_copier.model import PhotoSession
 from dwarf_copier.widgets.prev_next import PrevNext
+from dwarf_copier.widgets.sortable_table import SortableDataTable
+
+
+class Toggle:
+    """Rich renderable checkable box."""
+
+    value: bool = False
+
+    def __init__(self, v: bool) -> None:
+        self.value = v
+
+    def toggle(self) -> "Toggle":
+        return Toggle(not self.value)
+
+    def __rich__(self) -> str:
+        """A toggleable check box."""
+        return "\N{Ballot Box with Check}" if self.value else "\N{Ballot Box}"
+
+
+@dataclass(order=True, frozen=True)
+class Shots:
+    """Rich renderable renders with custom separator."""
+
+    stacked: int
+    taken: int
+    sep: str = field(default="/", kw_only=True)
+
+    def _color(self) -> str:
+        if self.stacked * 10 >= self.taken * 9:
+            return ""
+        return "orange3"
+
+    def __str__(self) -> str:
+        """String for display."""
+        return f"{self.stacked}{self.sep}{self.taken}"
+
+    def __rich__(self) -> Text:
+        """Render tuple with custom separator."""
+        s = f"{self.stacked}{self.sep}{self.taken}"
+        color = self._color()
+        return Text(s, style=color)
 
 
 class ShowSessions(Screen[list[PhotoSession] | None]):
     """Screen to display sessions present on a source."""
 
-    selected: list[PhotoSession]
-    sessions: dict[str, PhotoSession]
+    selected_keys: set[RowKey]
+    sessions: dict[RowKey, PhotoSession]
+    column_keys: list[ColumnKey]
 
+    @dataclass
     class SessionFound(Message):
         """Message when we find a folder containing images.
 
@@ -27,10 +73,6 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
         """
 
         session: PhotoSession | None
-
-        def __init__(self, session: PhotoSession | None):
-            self.session = session
-            super().__init__()
 
     def __init__(
         self,
@@ -41,16 +83,17 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
         self.config = config
         self.source = source
         self.target = target
-        self.selected = []
+        self.selected_keys = set()
         self.sessions = {}
+        self.column_keys = []
         super().__init__()
 
     def compose(self) -> ComposeResult:
         """Create our widgets."""
         yield Header()
-        data = DataTable[str | int | float]()
-        data.add_columns(
-            "Target", "Date", "Exp", "Gain", "IR", "Bin", "Shots", "Directory"
+        data = SortableDataTable[str | int | float | Shots | Toggle]()
+        self.column_keys = data.add_columns(
+            "", "Target", "Date", "Exp", "Gain", "IR", "Bin", "Shots", "Directory"
         )
         data.loading = True
         data.cursor_type = "row"
@@ -59,6 +102,7 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
         yield Footer()
 
     def on_mount(self) -> None:
+        self.sort_column_key = None
         self.populate()
 
     def populate(self) -> None:
@@ -66,6 +110,10 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
             self.post_message(self.SessionFound(session))
 
         self.list_dirs(self.source, callback)
+
+    @property
+    def selected(self) -> list[PhotoSession]:
+        return [self.sessions[k] for k in self.selected_keys]
 
     @work(thread=True)
     def list_dirs(
@@ -85,17 +133,18 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
     @on(DataTable.RowSelected)
     def row_selected(self, event: DataTable.RowSelected) -> None:
         event.stop()
-        if event.row_key is not None and event.row_key.value in self.sessions:
-            self.selected = [self.sessions[event.row_key.value]]
-            self.log(f"Selected session: {event.row_key.value}")
-        self.check_form_valid()
+        if event.row_key is not None and event.row_key in self.sessions:
+            datatable = event.data_table
+            cell: Toggle = datatable.get_cell(
+                event.row_key, self.column_keys[0]
+            ).toggle()
+            datatable.update_cell(event.row_key, self.column_keys[0], cell)
 
-    @on(DataTable.RowHighlighted)
-    def row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        event.stop()
-        if event.row_key is not None and event.row_key.value in self.sessions:
-            self.selected = [self.sessions[event.row_key.value]]
-            self.log(f"Selected session: {event.row_key.value}")
+            if cell.value:
+                self.selected_keys.add(event.row_key)
+            else:
+                self.selected_keys.remove(event.row_key)
+            self.log(f"Selected sessions: {self.selected_keys}")
         self.check_form_valid()
 
     def check_form_valid(self) -> None:
@@ -123,16 +172,17 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
         else:
             session = msg.session
             self.log(f"Session: {session.path.name}")
-            self.sessions[session.path.name] = session
             info = session.info
-            data.add_row(
+            key = data.add_row(
+                Toggle(False),
                 info.target,
                 session.date.strftime("%y/%m/%d %H:%M"),
-                info.exp,
+                info.exp_fraction,
                 info.gain,
                 info.ir,
                 info.binning,
-                f"{info.shotsStacked}/{info.shotsTaken}",
+                Shots(info.shotsStacked, info.shotsTaken),
                 session.path.name,
                 key=session.path.name,
             )
+            self.sessions[key] = session

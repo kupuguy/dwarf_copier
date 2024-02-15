@@ -25,12 +25,6 @@ class RunApp(App):
 
 
 @pytest.fixture
-def astronomy_source() -> Path:
-    test_folder = Path(__file__).parent
-    return test_folder / "data" / "Astronomy"
-
-
-@pytest.fixture
 def app() -> RunApp:
     app = RunApp()
     return app

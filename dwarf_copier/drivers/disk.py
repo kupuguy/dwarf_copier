@@ -2,9 +2,8 @@
 
 import multiprocessing as mp
 import re
-from dataclasses import dataclass
+import shutil
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Callable
 
@@ -16,23 +15,6 @@ FOLDER_PATTERN = (
     "<year>-<mon>-<day>-<hour>-<min>-<sec>-<millisec>"
 )
 SHOTS_INFO = "shotsInfo.json"
-
-
-class Cmd(Enum):
-    """Queue commands."""
-
-    QUIT = 0
-    LIST_SESSIONS = 1
-    COPY_SESSION = 2
-
-
-@dataclass
-class Command:
-    """Command and associated parameters."""
-
-    cmd: Cmd
-    path: Path | None = None
-    callback: Callable | None = None
 
 
 class Driver:
@@ -48,18 +30,6 @@ class Driver:
     def __init__(self, root: Path) -> None:
         self.queue = mp.Queue()
         self.root = root
-
-    def send_dirlist(
-        self, path: Path, callback: Callable[[PhotoSession | None], None]
-    ) -> None:
-        """Get a list of photo session folders at the target.
-
-        The callback is triggered once per folder.
-        """
-        self.queue.put(Command(Cmd.LIST_SESSIONS, path=path, callback=callback))
-
-    def run(self, num_workers: int = 1) -> None:
-        ...
 
     def _folder_regex(self, template: str) -> re.Pattern:
         """Convert the 'friendly' folder pattern into a regex."""
@@ -97,6 +67,7 @@ class Driver:
         session: PhotoSession,
         target_path: Path,
     ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
+        """Build maps of files to be copied or linked."""
         # target_path = target.path / session.format(format.path)
         mkdirs = [target_path / d for d in format.directories]
         links: dict[Path, str] = {}
@@ -112,3 +83,11 @@ class Driver:
                     copies[p] = session.format(op.destination, name=p.name)
 
         return mkdirs, links, copies
+
+    def copy_file(self, src: Path, dest: Path) -> None:
+        """Copy a single file."""
+        shutil.copyfile(src, dest)
+
+    def link_file(self, src: Path, dest: Path) -> None:
+        """Create a link from dest back to src."""
+        dest.symlink_to(src)

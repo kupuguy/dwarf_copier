@@ -12,7 +12,8 @@ class HelpScreen(ModalScreen):
     """Need some help? Find it here."""
 
     BINDINGS = [
-        ("q", "app.pop_screen", "Done"),
+        ("escape", "app.pop_screen", "Done"),
+        Binding(key="q", action="app.pop_screen", show=False),
         Binding(
             key="question_mark",
             show=False,

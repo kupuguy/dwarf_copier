@@ -62,14 +62,14 @@ SelectSourceTarget {
         align: right bottom;
     }
 
-    RadioSet:dark {
+    & RadioSet:dark {
         border: round $secondary-background-darken-1;
     }
-    RadioSet:light {
+    & RadioSet:light {
         border: round $secondary-background-lighten-1;
     }
 
-    RadioSet:focus {
+    & RadioSet:focus {
         border: round $accent;
     }
 }
