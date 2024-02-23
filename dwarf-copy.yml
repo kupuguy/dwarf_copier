@@ -4,7 +4,7 @@ general:
 sources:
   - name: Backup
     type: Drive
-    path: "C:\\Backup\\Dwarf_II_2024_01_18\\"
+    path: "C:\\Backup\\Dwarf_II_2024_01_18\\Astronomy"
     darks:
       - "../DWARF_RAW_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}*"
       - "../DWARF_DARK/exp_${exp}_gain_${gain}_bin_${bin}"

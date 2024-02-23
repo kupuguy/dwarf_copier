@@ -73,3 +73,39 @@ SelectSourceTarget {
         border: round $accent;
     }
 }
+
+PreCopy Log {
+    max-height: 5;
+    background: grey;
+}
+.selected_sessions {
+    layout: vertical;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: pink;
+}
+SessionSummary { height: auto; background: rgb(50,50,50); }
+
+SessionSummary .single_session {
+    layout: grid;
+    grid-size: 2 6;
+    grid-rows: auto;
+    grid-columns: 8 auto;
+    border: round $accent;
+    & Static { background: rgb(10,60,60); align: left middle; }
+    & Label { background: rgb(10,10,60); }
+    & DirSelector { column-span: 2; }
+    height: auto;
+    overflow-x: auto;
+}
+
+DirSelector {
+    layout: grid;
+    grid-size: 2 1;
+    grid-columns: 8 1fr;
+    grid-rows: 3;
+    background: rgb(50, 80, 50);
+    height: 3;
+    #message { align: center middle; }
+}
+

@@ -1,6 +1,7 @@
 """Main dashboard screen."""
 
 
+from dataclasses import replace
 from typing import Awaitable, Callable
 
 from textual import work
@@ -9,10 +10,11 @@ from textual.screen import Screen
 from textual.widgets import Footer, Header
 from textual.worker import Worker
 
-from dwarf_copier.config import ConfigSource, ConfigTarget, ConfigurationModel
+from dwarf_copier.configuration import config
 from dwarf_copier.drivers import disk
-from dwarf_copier.model import PhotoSession
+from dwarf_copier.model import PartialState, State
 from dwarf_copier.screens.copy_files import CopyFiles
+from dwarf_copier.screens.pre_copy import PreCopy
 from dwarf_copier.screens.show_sessions import ShowSessions
 
 from .source_target import SelectSourceTarget
@@ -26,13 +28,21 @@ class DashboardScreen(Screen):
     This screen shows a list of Dwarf Telescopes from which we can copy files.
     """
 
-    config: ConfigurationModel
-    source: ConfigSource | None = None
-    target: ConfigTarget | None = None
-    driver: disk.Driver | None = None
-    sessions: list[PhotoSession]
+    state: PartialState
 
     _current: StateMachineStep
+
+    def __init__(
+        self, name: str | None = None, id: str | None = None, classes: str | None = None
+    ) -> None:
+        self.state = PartialState(
+            source=None,
+            target=None,
+            selected=[],
+            format=None,
+            driver=None,
+        )
+        super().__init__(name=name, id=id, classes=classes)
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the screen."""
@@ -41,7 +51,6 @@ class DashboardScreen(Screen):
 
     def on_mount(self) -> None:
         """Dashboard screen actually just controls the screens in the workflow."""
-        self.config = self.app.config  # type: ignore
         self.workflow()
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
@@ -57,14 +66,12 @@ class DashboardScreen(Screen):
         This worker kicks off each screen in turn but because some screens have a 'prev'
         option we also have to allow going back.
         """
-        self.source: ConfigSource | None = None
-        self.target: ConfigTarget | None = None
-        self.driver: disk.Driver | None = None
         self._current = self.when_copy_files
 
         self.log.warning("State step complete")
 
         while await self.step():
+            self.log.info(self.state)
             pass
 
     async def step(self) -> bool:
@@ -80,43 +87,50 @@ class DashboardScreen(Screen):
 
     async def when_select_source(self) -> StateMachineStep:
         self.driver = None
-        res = await self.app.push_screen(
-            screen=SelectSourceTarget(self.config, self.source, self.target),
+        new_state = await self.app.push_screen(
+            screen=SelectSourceTarget(self.state),
             wait_for_dismiss=True,
         )
-        if res is not None:
-            self.source, self.target = res
+        if new_state.source is not None and new_state.target is not None:
+            self.state = replace(
+                new_state,
+                format=config.get_format(new_state.target.format),
+            )
             return self.when_select_sessions
         return self.when_select_source
 
     async def when_select_sessions(self) -> StateMachineStep:
-        if self.source is None or self.target is None:
+        state = self.state
+        if state.source is None or state.target is None:
             return self.when_select_source
 
-        if self.driver is None:
-            self.driver = disk.Driver(self.source.path)
+        if state.driver is None:
+            self.state = state = replace(state, driver=disk.Driver(state.source.path))
 
-        sessions = await self.app.push_screen_wait(
-            screen=ShowSessions(self.config, self.source, self.target),
+        new_state: State = await self.app.push_screen_wait(
+            screen=ShowSessions(State.from_partial(state)),
         )
-        if sessions is None:
-            self.notify(f"No image sessions found in {self.source.path}")
+        if not (new_state.ok and new_state.selected):
             return self.when_select_source
 
-        self.sessions = list(sessions)
-        return self.when_copy_files
+        self.state = PartialState.from_state(new_state)
+        return self.when_pre_copy
 
-    async def when_copy_files(self) -> StateMachineStep | None:
-        if not (self.source and self.target and self.sessions):
+    async def when_pre_copy(self) -> StateMachineStep | None:
+        if not self.state.is_complete():
             return self.when_select_sessions
 
-        screen = CopyFiles(
-            self.config,
-            self.source,
-            self.target,
-            self.sessions,
-            self.config.get_format(self.target.format),
-        )
+        screen = PreCopy(State.from_partial(self.state))
+        new_state = await self.app.push_screen_wait(screen=screen)
+        if new_state.ok:
+            return self.when_copy_files
+        return self.when_select_sessions
+
+    async def when_copy_files(self) -> StateMachineStep | None:
+        if not self.state.is_complete():
+            return self.when_select_sessions
+
+        screen = CopyFiles(State.from_partial(self.state))
         result = await self.app.push_screen_wait(screen=screen)
         self.notify(str(result))
         return None

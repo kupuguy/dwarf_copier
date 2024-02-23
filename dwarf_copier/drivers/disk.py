@@ -1,14 +1,14 @@
 """Driver for photo files accessible via a file path."""
 
-import multiprocessing as mp
 import re
 import shutil
 from datetime import datetime
+from functools import cached_property
 from pathlib import Path
 from typing import Callable
 
-from dwarf_copier.config import ConfigFormat
-from dwarf_copier.model import PhotoSession, ShotsInfo
+from dwarf_copier.configuration import ConfigFormat
+from dwarf_copier.model import BaseDriver, PhotoSession, ShotsInfo
 
 FOLDER_PATTERN = (
     "DWARF_RAW_<target>_EXP_<exp>_GAIN_<gain>_"
@@ -17,7 +17,7 @@ FOLDER_PATTERN = (
 SHOTS_INFO = "shotsInfo.json"
 
 
-class Driver:
+class Driver(BaseDriver):
     """Class used to access photo files.
 
     The work happens in a threaded worker so it cannot block the main display.
@@ -25,10 +25,7 @@ class Driver:
     callbacks (which must be thread-safe) e.g. post_message.
     """
 
-    queue: mp.Queue
-
     def __init__(self, root: Path) -> None:
-        self.queue = mp.Queue()
         self.root = root
 
     def _folder_regex(self, template: str) -> re.Pattern:
@@ -38,28 +35,36 @@ class Driver:
         )
         return pattern
 
+    @cached_property
+    def pattern(self) -> re.Pattern:
+        """Pre-compiled regex to match our template."""
+        return self._folder_regex(FOLDER_PATTERN)
+
     def list_dirs(self, callback: Callable[[PhotoSession | None], None]) -> None:
-        pattern = self._folder_regex(FOLDER_PATTERN)
-        for p in self.root.glob("Astronomy/DWARF_RAW*"):
-            if (
-                not p.is_dir()
-                or not (p / SHOTS_INFO).exists()
-                or (m := pattern.match(p.name)) is None
-            ):
-                continue
+        for p in self.root.glob("DWARF_RAW*"):
+            session = self.create_session(p)
+            if session is not None:
+                callback(session)
+        callback(None)
+
+    def create_session(self, p: Path) -> PhotoSession | None:
+        if (
+            p.is_dir()
+            and (p / SHOTS_INFO).exists()
+            and (m := self.pattern.match(p.name)) is not None
+        ):
             info = ShotsInfo.model_validate_json((p / SHOTS_INFO).read_text())
 
             year, mon, day, hour, min, sec, millisec = [
                 int(s)
                 for s in m.group("year", "mon", "day", "hour", "min", "sec", "millisec")
             ]
-            session = PhotoSession(
+            return PhotoSession(
                 path=p,
                 info=info,
                 date=datetime(year, mon, day, hour, min, sec, millisec * 1000),
             )
-            callback(session)
-        callback(None)
+        return None
 
     def prepare(
         self,

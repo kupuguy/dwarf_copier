@@ -5,12 +5,12 @@ from string import Template
 
 import pytest
 
-from dwarf_copier.config import load_config
+from dwarf_copier.configuration import load_config
 
 
 @pytest.fixture
 def config_text() -> str:
-    from dwarf_copier.config import DEFAULT_CONFIG
+    from dwarf_copier.configuration import DEFAULT_CONFIG
 
     return DEFAULT_CONFIG.model_dump_json()
 

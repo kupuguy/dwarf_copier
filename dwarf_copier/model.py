@@ -1,12 +1,21 @@
 """Data models."""
 
+from abc import ABC, abstractmethod
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from fractions import Fraction
 from pathlib import Path
 from queue import Queue
 from string import Template
+from typing import Callable, Self
 
 from pydantic import BaseModel, Field
+
+from dwarf_copier.configuration import (
+    ConfigFormat,
+    ConfigSource,
+    ConfigTarget,
+)
 
 
 class ShotsInfo(BaseModel):
@@ -50,6 +59,16 @@ class PhotoSession(BaseModel):
     info: ShotsInfo
     date: datetime
 
+    darks: Path | None = Field(
+        default=None, description="Dark frames, optional, Dwarf's own or taken manually"
+    )
+    flats: Path | None = Field(
+        default=None, description="Biases (optional, must be taken manually)"
+    )
+    biases: Path | None = Field(
+        default=None, description="Flats (optional, must be taken manually)"
+    )
+
     def format(self, template: Template, name: str = "") -> str:
         # TODO: make this lazier
         d = {
@@ -68,6 +87,53 @@ class PhotoSession(BaseModel):
             "name": name,
         }
         return template.safe_substitute(d)
+
+    def destination_exists(self, base: Path, template: Template) -> bool:
+        """Check whether destination path already exists."""
+        dest_path = base / self.format(template)
+        return dest_path.exists()
+
+
+@dataclass(frozen=True)
+class State:
+    """Save passing all these values together, group into a single app state."""
+
+    source: ConfigSource
+    target: ConfigTarget
+    selected: list[PhotoSession]
+    format: ConfigFormat
+    driver: "BaseDriver"
+    ok: bool = False
+
+    @classmethod
+    def from_partial(cls, partial: "PartialState") -> Self:
+        if partial.is_complete():
+            return cls(**asdict(partial))
+        raise TypeError("Partial state is incomplete.")
+
+
+@dataclass(frozen=True)
+class PartialState:
+    """State but most fields are optional."""
+
+    source: ConfigSource | None = None
+    target: ConfigTarget | None = None
+    selected: list[PhotoSession] = field(default_factory=list)
+    format: ConfigFormat | None = None
+    driver: "BaseDriver | None" = None
+    ok: bool = False
+
+    def is_complete(self) -> bool:
+        return (
+            self.source is not None
+            and self.target is not None
+            and self.format is not None
+            and self.driver is not None
+        )
+
+    @classmethod
+    def from_state(cls, state: "State") -> Self:
+        return cls(**asdict(state))
 
 
 class QuitCommand(BaseModel):
@@ -119,3 +185,34 @@ class LinkCommand(CopyOrLinkBase):
 BaseCommand = QuitCommand | CopyCommand | LinkCommand
 CommandQueue = Queue[BaseCommand]
 QUIT_COMMAND = QuitCommand()
+
+
+class BaseDriver(ABC):
+    """Interface used to access photo files.
+
+    Different concrete implementations are used for disk drives, ftp, etc.
+    """
+
+    def __init__(self, root: Path) -> None:
+        pass
+
+    @abstractmethod
+    def list_dirs(self, callback: Callable[[PhotoSession | None], None]) -> None:
+        ...
+
+    @abstractmethod
+    def prepare(
+        self,
+        format: ConfigFormat,
+        session: PhotoSession,
+        target_path: Path,
+    ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
+        """Build maps of files to be copied or linked."""
+
+    @abstractmethod
+    def copy_file(self, src: Path, dest: Path) -> None:
+        """Copy a single file."""
+
+    @abstractmethod
+    def link_file(self, src: Path, dest: Path) -> None:
+        """Create a link from dest back to src."""

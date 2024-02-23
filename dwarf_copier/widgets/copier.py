@@ -11,11 +11,10 @@ from textual.reactive import reactive
 from textual.widgets import Label
 from textual.worker import Worker, get_current_worker
 
-from dwarf_copier.drivers import disk
-from dwarf_copier.drivers.disk import Driver
 from dwarf_copier.model import (
     QUIT_COMMAND,
     BaseCommand,
+    BaseDriver,
     CommandQueue,
     CopyCommand,
     LinkCommand,
@@ -45,7 +44,7 @@ class Copier(Horizontal):
     valid = reactive(False)
 
     def __init__(
-        self, driver: Driver, queue: CommandQueue, id: str | None = None
+        self, driver: BaseDriver, queue: CommandQueue, id: str | None = None
     ) -> None:
         self.driver = driver
         self.queue = queue
@@ -91,7 +90,7 @@ class Copier(Horizontal):
 class CopyGroup(Vertical):
     """Group of copier widgets."""
 
-    driver: disk.Driver
+    driver: BaseDriver
     queue: CommandQueue
     copiers: list[Copier]
     copy_workers: list[Worker[None]]
@@ -99,7 +98,7 @@ class CopyGroup(Vertical):
     def __init__(
         self,
         num_workers: int,
-        driver: disk.Driver,
+        driver: BaseDriver,
         queue: CommandQueue,
         id: str | None = None,
     ) -> None:

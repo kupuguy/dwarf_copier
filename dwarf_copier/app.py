@@ -1,12 +1,13 @@
 """Main application class for dwarf-copy."""
 
 
+from typing import Any
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.widgets import Footer, Header
 
-from dwarf_copier.config import ConfigurationModel, load_config
+from dwarf_copier import configuration
 from dwarf_copier.screens import DashboardScreen, HelpScreen, QuitScreen, SettingsScreen
 
 
@@ -40,6 +41,10 @@ class DwarfCopyApp(App):
         "help": HelpScreen,
     }
 
+    def __init__(self, *args: Any, **kw: Any) -> None:
+        super().__init__(*args, **kw)
+        self.dark = configuration.config.general.theme == "dark"
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
         yield Header()
@@ -47,7 +52,7 @@ class DwarfCopyApp(App):
 
     def on_mount(self) -> None:
         """Triggered when the app is opened."""
-        self.dark = self.config.general.theme == "dark"
+        self.dark = configuration.config.general.theme == "dark"
         self.title = "Dwarf Copy"
         # self.sub_title = "[no source]"
         self.switch_mode("dashboard")
@@ -65,13 +70,6 @@ class DwarfCopyApp(App):
                 self.exit()
 
         self.push_screen(QuitScreen(), check_quit)
-
-    @property
-    def config(self) -> ConfigurationModel:
-        """Get configuration items."""
-        cfg = load_config()
-        self.dark = cfg.general.theme == "dark"
-        return cfg
 
 
 def run() -> None:

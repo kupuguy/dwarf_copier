@@ -4,20 +4,19 @@ Test command line usage
 # pylint: disable=redefined-outer-name,missing-function-docstring unused-argument, protected-access
 
 import pytest
-from pytest_mock import MockerFixture
 
 from dwarf_copier import app
-from dwarf_copier.config import DEFAULT_CONFIG, ConfigurationModel
+from dwarf_copier.configuration import DEFAULT_CONFIG, ConfigurationModel
 from dwarf_copier.screens.quit import QuitScreen
 
 pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-def mock_config(mocker: MockerFixture) -> ConfigurationModel:
+def mock_config(monkeypatch: pytest.MonkeyPatch) -> ConfigurationModel:
     """Fixture to stop tests picking up actual configs."""
     config = DEFAULT_CONFIG.model_copy(deep=True)
-    mocker.patch("dwarf_copier.app.load_config", return_value=config)
+    monkeypatch.setattr("dwarf_copier.configuration.config", config)
     return config
 
 

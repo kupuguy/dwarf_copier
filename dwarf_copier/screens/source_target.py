@@ -7,15 +7,19 @@ from textual.containers import Container
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Label, RadioButton, RadioSet
 
-from dwarf_copier.config import ConfigSource, ConfigTarget, ConfigurationModel
+from dwarf_copier.configuration import (
+    ConfigSource,
+    ConfigTarget,
+    config,
+)
+from dwarf_copier.model import PartialState
 from dwarf_copier.widgets.prev_next import PrevNext
 
 
-class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
+class SelectSourceTarget(Screen[PartialState]):
     """Screen to select source and target."""
 
     BINDINGS = []
-    config: ConfigurationModel
     source: ConfigSource | None = None
     target: ConfigTarget | None = None
 
@@ -23,13 +27,10 @@ class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
 
     def __init__(
         self,
-        config: ConfigurationModel,
-        source: ConfigSource | None,
-        target: ConfigTarget | None,
+        state: PartialState,
     ) -> None:
-        self.config = config
-        self.source = source
-        self.target = target
+        self.source = state.source
+        self.target = state.target
         super().__init__()
 
     def compose(self) -> ComposeResult:
@@ -38,7 +39,7 @@ class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
             yield Label("Select source and destination for image copy:", id="top_text")
             with RadioSet(id="sources") as rs:
                 rs.border_title = "Source"
-                for src in self.config.sources:
+                for src in config.sources:
                     logging.info(
                         "Selected: %s, src %r, self.source %r",
                         src == self.source,
@@ -49,7 +50,7 @@ class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
 
             with RadioSet(id="targets") as rs:
                 rs.border_title = "Destination"
-                for target in self.config.targets:
+                for target in config.targets:
                     yield RadioButton(target.name, value=target == self.target)
 
             yield Label(id="current_source")
@@ -66,13 +67,13 @@ class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
     @on(RadioSet.Changed, "#sources")
     def source_change(self, event: RadioSet.Changed) -> None:
         """User selected a source."""
-        self.source = self.config.sources[event.radio_set.pressed_index]
+        self.source = config.sources[event.radio_set.pressed_index]
         self.form_is_valid()
 
     @on(RadioSet.Changed, "#targets")
     def target_changed(self, event: RadioSet.Changed) -> None:
         """User selected a target."""
-        self.target = self.config.targets[event.radio_set.pressed_index]
+        self.target = config.targets[event.radio_set.pressed_index]
         self.form_is_valid()
 
     def form_is_valid(self) -> None:
@@ -82,7 +83,7 @@ class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
 
         if self.target is not None:
             self.query_one("#current_target", Label).update(
-                self.config.describe_target(self.target)
+                config.describe_target(self.target)
             )
 
         button_bar = self.query_one("PrevNext", PrevNext)
@@ -92,4 +93,6 @@ class SelectSourceTarget(Screen[tuple[ConfigSource, ConfigTarget]]):
     def next_pressed(self) -> None:
         """Pressing 'next' dismisses this screen."""
         if self.source is not None and self.target is not None:
-            self.dismiss((self.source, self.target))
+            self.dismiss(
+                PartialState(source=self.source, target=self.target)
+            )

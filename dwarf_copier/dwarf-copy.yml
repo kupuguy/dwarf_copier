@@ -15,7 +15,7 @@ sources:
     path: /Astronomy
 targets:
   - name: Backup
-    path: C:\Backup\Dwarf_II\
+    path: C:\Backup\Dwarf_II\Astronomy
     format: Backup
   - name: Astrophotography
     path: C:\Astrophotography\
@@ -23,6 +23,27 @@ targets:
 formats:
   - name: Backup
     description: Copy files without changes
+    path: "DWARF_RAW_${target_}EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}-${H}-${m}-${S}-${ms}"
+    darks: "../DWARF_DARKS_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}"
+    copy_only:
+      - source: "*"
+        destination: "${name}"
   - name: Siril
     description: Copy into Siril directory structure
-    
+    path: "${target_}EXP_${exp}_GAIN_${gain}_${Y}_${M}_${d}"
+    darks: "darks"
+    directories:
+      - darks
+      - lights
+      - biases
+      - flats
+    link_or_copy:
+      - source: "shotsInfo.json"
+        destination: "shotsInfo.json"
+      - source: "*.fits"
+        destination: "lights/${name}"
+      - source: "*.jpg"
+        destination: "${target}-${name}"
+      - source: "*.png"
+        destination: "${target}-${name}"
+            

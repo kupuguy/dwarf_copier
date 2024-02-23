@@ -5,8 +5,9 @@ import pytest
 from pytest_mock import MockFixture
 from textual.app import App
 
-from dwarf_copier.config import ConfigurationModel
-from dwarf_copier.model import PhotoSession, ShotsInfo
+from dwarf_copier.configuration import ConfigurationModel
+from dwarf_copier.drivers import disk
+from dwarf_copier.model import PhotoSession, ShotsInfo, State
 from dwarf_copier.screens.copy_files import CopyFiles
 
 pytestmark = pytest.mark.anyio
@@ -61,13 +62,14 @@ async def test_copy_files(
     expected = [expected_target / "0000.fits"]
 
     async with app.run_test():
-        copy_screen = CopyFiles(
-            config_dummy,
+        state = State(
             config_source,
             config_target,
             selected,
             config_dummy.get_format(config_target.format),
+            driver=disk.Driver(config_source.path),
         )
+        copy_screen = CopyFiles(state)
         await app.push_screen(
             copy_screen,
         )

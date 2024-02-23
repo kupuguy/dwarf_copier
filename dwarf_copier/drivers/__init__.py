@@ -1,5 +1,5 @@
 """Drivers for file operations."""
 
-from . import disk
+from .disk import Driver
 
-__all__ = ["disk"]
+__all__ = ["Driver"]

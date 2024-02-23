@@ -8,7 +8,7 @@ from textual import work
 from textual.app import App
 
 from dwarf_copier.drivers import disk
-from dwarf_copier.model import PhotoSession, ShotsInfo
+from dwarf_copier.model import BaseDriver, PhotoSession, ShotsInfo
 
 pytestmark = pytest.mark.anyio
 
@@ -19,7 +19,7 @@ class RunApp(App):
 
     @work(thread=True)
     def list_dirs(
-        self, driver: disk.Driver, callback: Callable[[PhotoSession | None], None]
+        self, driver: BaseDriver, callback: Callable[[PhotoSession | None], None]
     ) -> None:
         driver.list_dirs(callback=callback)
 
@@ -111,7 +111,7 @@ async def test_list_dirs(
     callback = mocker.Mock(wraps=app.cb)
 
     async with app.run_test():
-        driver = disk.Driver(astronomy_source.parent)
+        driver = disk.Driver(astronomy_source)
         worker = app.list_dirs(driver, callback=callback)
         await worker.wait()
 

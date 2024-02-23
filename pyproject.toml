@@ -13,7 +13,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-textual = "^0.48.2"
+textual = "^0.50.1"
 bleak = "^0.21.1"
 anyio = "^4.2.0"
 pydantic = "^2.5.3"
@@ -34,6 +34,7 @@ mkdocs-gen-files = "^0.5.0"
 mkdocs-literate-nav = "^0.6.1"
 types-pyyaml = "^6.0.12.12"
 pytest-mock = "^3.12.0"
+coverage = "^7.4.1"
 
 [tool.poetry.scripts]
 dwarf-copy = 'dwarf_copier.app:run'
@@ -72,6 +73,39 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "D104"]
 "**/{tests,docs,tools}/*" = ["D"]
+
+[tool.coverage.run]
+branch = true
+omit=["tests/*"]
+
+[tool.coverage.paths]
+source = [
+    "dwarf_copier/*",
+    ]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    ]
+
+ignore_errors = true
+
+[tool.coverage.html]
+directory = "coverage_html_report"
 
 [build-system]
 requires = ["poetry-core"]

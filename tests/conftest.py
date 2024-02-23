@@ -1,8 +1,9 @@
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from dwarf_copier.config import (
+from dwarf_copier.configuration import (
     ConfigCopy,
     ConfigFormat,
     ConfigGeneral,
@@ -10,6 +11,7 @@ from dwarf_copier.config import (
     ConfigTarget,
     ConfigurationModel,
 )
+from dwarf_copier.model import PhotoSession, ShotsInfo
 
 
 @pytest.fixture
@@ -61,3 +63,67 @@ def config_dummy(tmp_path: Path, astronomy_source: Path) -> ConfigurationModel:
             ),
         ],
     )
+
+
+@pytest.fixture
+def photo_sessions(astronomy_source: Path) -> list[PhotoSession]:
+    return [
+        PhotoSession(
+            path=Path(
+                astronomy_source / "DWARF_RAW_M1_EXP_15_GAIN_80_2024-01-18-21-04-26-954"
+            ),
+            info=ShotsInfo(
+                DEC=22.01469444,
+                RA=5.575916667,
+                binning="1*1",
+                exp="15",
+                format="FITS",
+                gain=80,
+                ir="PASS",
+                shotsStacked=286,
+                shotsTaken=287,
+                shotsToTake=300,
+                target="M1",
+            ),
+            date=datetime(2024, 1, 18, 21, 4, 26, 954000),
+        ),
+        PhotoSession(
+            path=Path(
+                astronomy_source / "DWARF_RAW_M43_EXP_5_GAIN_60_2024-01-22-19-04-10-409"
+            ),
+            info=ShotsInfo(
+                DEC=-5.270722222,
+                RA=5.592305556,
+                binning="1*1",
+                exp="5",
+                format="FITS",
+                gain=60,
+                ir="CUT",
+                shotsStacked=16,
+                shotsTaken=113,
+                shotsToTake=999,
+                target="M43",
+            ),
+            date=datetime(2024, 1, 22, 19, 4, 10, 409000),
+        ),
+        PhotoSession(
+            path=Path(
+                astronomy_source
+                / "DWARF_RAW_Moon_EXP_0.0025_GAIN_0_2024-01-16-15-02-35-270"
+            ),
+            info=ShotsInfo(
+                DEC=0.0,
+                RA=0.0,
+                binning="1*1",
+                exp="1/400",
+                format="FITS",
+                gain=0,
+                ir="CUT",
+                shotsStacked=1,
+                shotsTaken=9,
+                shotsToTake=999,
+                target="Moon",
+            ),
+            date=datetime(2024, 1, 16, 15, 2, 35, 270000),
+        ),
+    ]

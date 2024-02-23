@@ -5,6 +5,7 @@ Read/write configuration file. Searches locations to find an available file.
 
 import logging
 import os
+import sys
 from enum import StrEnum
 from pathlib import Path
 from string import Template
@@ -17,11 +18,14 @@ from pydantic import (
     ConfigDict,
     Field,
     GetPydanticSchema,
+    ValidationError,
     field_validator,
     model_validator,
 )
 from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+__all__ = ["config"]
 
 ConfigTemplate = Annotated[
     Template,
@@ -333,10 +337,16 @@ def load_config(
         if config_file.exists():
             data: dict = yaml.safe_load(config_file.read_text())
             logging.info("Using config %r", data)
-            return ConfigurationModel(**data)
+            try:
+                return ConfigurationModel(**data)
+            except ValidationError as e:
+                sys.exit(f"Invalid configuration {config_file}\n{str(e)}")
 
     logging.warning("No configuration found, using default")
 
     config = DEFAULT_CONFIG.model_copy(deep=True)
     logging.warning("Config %r", config)
     return config
+
+
+config = load_config()

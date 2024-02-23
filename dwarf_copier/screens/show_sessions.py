@@ -1,6 +1,6 @@
 """Model dialog to confirm leaving the app."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable
 
 from rich.text import Text
@@ -8,12 +8,12 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.screen import Screen
-from textual.widgets import Button, DataTable, Footer, Header
+from textual.widgets import DataTable, Footer, Header
 from textual.widgets.data_table import ColumnKey, RowKey
 
-from dwarf_copier.config import ConfigSource, ConfigTarget, ConfigurationModel
+from dwarf_copier.configuration import ConfigSource, config
 from dwarf_copier.drivers import disk
-from dwarf_copier.model import PhotoSession
+from dwarf_copier.model import PhotoSession, State
 from dwarf_copier.widgets.prev_next import PrevNext
 from dwarf_copier.widgets.sortable_table import SortableDataTable
 
@@ -45,7 +45,7 @@ class Shots:
     def _color(self) -> str:
         if self.stacked * 10 >= self.taken * 9:
             return ""
-        return "orange3"
+        return "orange3 on grey70"
 
     def __str__(self) -> str:
         """String for display."""
@@ -58,9 +58,24 @@ class Shots:
         return Text(s, style=color)
 
 
-class ShowSessions(Screen[list[PhotoSession] | None]):
+class ShowSessions(Screen[State]):
     """Screen to display sessions present on a source."""
 
+    COMPONENT_CLASSES = {
+        "sessions--new-folder",
+        "sessions--existing",
+        "shots--good",
+        "shots--poor",
+    }
+
+    DEFAULT_CSS = """
+    ShowSessions .sessions--new-folder {}
+    ShowSessions .sessions--existing { color: $text-disabled; }
+    .sessions--new-folder {  }
+    .sessions--existing { color: $text-disabled; }
+    """
+
+    state: State
     selected_keys: set[RowKey]
     sessions: dict[RowKey, PhotoSession]
     column_keys: list[ColumnKey]
@@ -76,13 +91,11 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
 
     def __init__(
         self,
-        config: ConfigurationModel,
-        source: ConfigSource,
-        target: ConfigTarget,
+        state: State,
     ) -> None:
-        self.config = config
-        self.source = source
-        self.target = target
+        self.state = state
+        self.source = state.source
+        self.target = state.target
         self.selected_keys = set()
         self.sessions = {}
         self.column_keys = []
@@ -123,28 +136,21 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
         driver.list_dirs(callback=callback)
         return
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Pressing 'next' dismisses this screen."""
-        if event.button.id == "next":
-            self.dismiss(self.selected)
-        else:
-            self.dismiss(None)
-
     @on(DataTable.RowSelected)
     def row_selected(self, event: DataTable.RowSelected) -> None:
         event.stop()
         if event.row_key is not None and event.row_key in self.sessions:
             datatable = event.data_table
-            cell: Toggle = datatable.get_cell(
-                event.row_key, self.column_keys[0]
-            ).toggle()
-            datatable.update_cell(event.row_key, self.column_keys[0], cell)
+            cell: Toggle | str = datatable.get_cell(event.row_key, self.column_keys[0])
+            if isinstance(cell, Toggle):
+                cell = cell.toggle()
+                datatable.update_cell(event.row_key, self.column_keys[0], cell)
 
-            if cell.value:
-                self.selected_keys.add(event.row_key)
-            else:
-                self.selected_keys.remove(event.row_key)
-            self.log(f"Selected sessions: {self.selected_keys}")
+                if cell.value:
+                    self.selected_keys.add(event.row_key)
+                else:
+                    self.selected_keys.remove(event.row_key)
+                self.log(f"Selected sessions: {self.selected_keys}")
         self.check_form_valid()
 
     def check_form_valid(self) -> None:
@@ -155,12 +161,12 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
     @on(PrevNext.Prev)
     def prev_pressed(self) -> None:
         """Pressing 'next' dismisses this screen."""
-        self.dismiss(None)
+        self.dismiss(replace(self.state, ok=False))
 
     @on(PrevNext.Next)
     def next_pressed(self) -> None:
         """Pressing 'next' dismisses this screen."""
-        self.dismiss((self.selected))
+        self.dismiss(replace(self.state, selected=list(self.selected), ok=True))
 
     @on(SessionFound)
     def session_found(self, msg: SessionFound) -> None:
@@ -173,8 +179,33 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
             session = msg.session
             self.log(f"Session: {session.path.name}")
             info = session.info
+            fmt = self.target.format
+            format = config.get_format(fmt)
+
+            if session.destination_exists(self.target.path, format.path):
+                style = self.get_component_rich_style(
+                    "sessions--existing", partial=True
+                )
+
+                directory = Text(
+                    session.path.name,
+                    style=style,
+                )
+                self.log.info(f"sessions--existing={style}")
+                checkbox: Toggle | str = ""
+            else:
+                style = self.get_component_rich_style(
+                    "sessions--new-folder", partial=True
+                )
+
+                directory = Text(
+                    session.path.name,
+                    style=style,
+                )
+                self.log.info(f"sessions--new-folder={style}")
+                checkbox = Toggle(False)
             key = data.add_row(
-                Toggle(False),
+                checkbox,
                 info.target,
                 session.date.strftime("%y/%m/%d %H:%M"),
                 info.exp_fraction,
@@ -182,7 +213,7 @@ class ShowSessions(Screen[list[PhotoSession] | None]):
                 info.ir,
                 info.binning,
                 Shots(info.shotsStacked, info.shotsTaken),
-                session.path.name,
+                directory,
                 key=session.path.name,
             )
             self.sessions[key] = session

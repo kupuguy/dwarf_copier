@@ -1,35 +1,44 @@
-"""Model dialog to confirm leaving the app."""
+"""Screen showing progress as files are copied/linked."""
 
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from queue import Queue
 from tempfile import mkdtemp
 
-import rich
 from textual import work
 from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Footer, Header, Log
 from textual.worker import Worker
 
-from dwarf_copier.config import (
+from dwarf_copier.configuration import (
     ConfigFormat,
     ConfigSource,
     ConfigTarget,
     ConfigurationModel,
+    config,
 )
-from dwarf_copier.drivers import disk
-from dwarf_copier.model import CommandQueue, CopyCommand, LinkCommand, PhotoSession
+from dwarf_copier.model import (
+    BaseDriver,
+    CommandQueue,
+    CopyCommand,
+    LinkCommand,
+    PhotoSession,
+    State,
+)
 from dwarf_copier.widgets.copier import Copier, CopyGroup
 from dwarf_copier.widgets.prev_next import PrevNext
 
 
-class CopyFiles(Screen[list[PhotoSession] | None]):
+class CopyFiles(Screen[State]):
     """Screen to display sessions present on a source."""
 
+    state: State
     config: ConfigurationModel
     selected: list[PhotoSession]
     sessions: dict[str, PhotoSession]
+    driver: BaseDriver
     queue: CommandQueue
     session: PhotoSession | None
     controller: Worker[None] | None = None
@@ -37,18 +46,14 @@ class CopyFiles(Screen[list[PhotoSession] | None]):
 
     def __init__(
         self,
-        config: ConfigurationModel,
-        source: ConfigSource,
-        target: ConfigTarget,
-        selected: list[PhotoSession],
-        format: ConfigFormat,
+        state: State,
     ) -> None:
-        self.config = config
-        self.source = source
-        self.target = target
-        self.selected = selected
-        self.format = format
-        self.driver = disk.Driver(source.path)
+        self.state = state
+        self.source = state.source
+        self.target = state.target
+        self.selected = state.selected
+        self.format = state.format
+        self.driver = state.driver
         self.queue = Queue()
         super().__init__()
 
@@ -56,7 +61,7 @@ class CopyFiles(Screen[list[PhotoSession] | None]):
         """Create our widgets."""
         yield Header()
         yield CopyGroup(
-            self.config.general.workers, self.driver, self.queue, id="copier"
+            config.general.workers, self.driver, self.queue, id="copier"
         )
         self.log_widget = Log()
         yield self.log_widget
@@ -72,7 +77,7 @@ class CopyFiles(Screen[list[PhotoSession] | None]):
         await self.workers.wait_for_complete()
 
     def trace(self, message: str) -> None:
-        rich.print(message)
+        # rich.print(message)
         self.log_widget.write_line(message)
 
     @work
@@ -88,7 +93,7 @@ class CopyFiles(Screen[list[PhotoSession] | None]):
             await self.copy_controller_impl(sessions, source, target, format)
         finally:
             await copier.shutdown()
-        self.dismiss(None)
+        self.dismiss(replace(self.state, ok=True))
 
     async def copy_controller_impl(
         self,
@@ -97,7 +102,7 @@ class CopyFiles(Screen[list[PhotoSession] | None]):
         target: ConfigTarget,
         format: ConfigFormat,
     ) -> None:
-        target_path = Path(target.path)
+        target_path = target.path
         target_path.mkdir(exist_ok=True, parents=True)
 
         for session in sessions:
