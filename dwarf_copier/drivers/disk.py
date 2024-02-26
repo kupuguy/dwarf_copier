@@ -73,7 +73,6 @@ class Driver(BaseDriver):
         target_path: Path,
     ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
         """Build maps of files to be copied or linked."""
-        # target_path = target.path / session.format(format.path)
         mkdirs = [target_path / d for d in format.directories]
         links: dict[Path, str] = {}
         for op in format.link_or_copy:
@@ -96,3 +95,7 @@ class Driver(BaseDriver):
     def link_file(self, src: Path, dest: Path) -> None:
         """Create a link from dest back to src."""
         dest.symlink_to(src)
+
+    def match_wildcards(self, base: Path, filename: str) -> list[Path]:
+        """Match files in base."""
+        return list(base.glob(filename))

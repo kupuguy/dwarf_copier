@@ -23,6 +23,7 @@ from dwarf_copier.model import (
     BaseDriver,
     CommandQueue,
     CopyCommand,
+    CopySession,
     LinkCommand,
     PhotoSession,
     State,
@@ -60,9 +61,7 @@ class CopyFiles(Screen[State]):
     def compose(self) -> ComposeResult:
         """Create our widgets."""
         yield Header()
-        yield CopyGroup(
-            config.general.workers, self.driver, self.queue, id="copier"
-        )
+        yield CopyGroup(config.general.workers, self.driver, self.queue, id="copier")
         self.log_widget = Log()
         yield self.log_widget
         yield PrevNext()
@@ -102,17 +101,16 @@ class CopyFiles(Screen[State]):
         target: ConfigTarget,
         format: ConfigFormat,
     ) -> None:
-        target_path = target.path
-        target_path.mkdir(exist_ok=True, parents=True)
-
-        for session in sessions:
+        for photo_session in sessions:
             self.trace("")
-            destination_path = target_path / session.format(format.path)
+            session = CopySession(photo_session, target, format)
+            destination_path = session.destination
+            destination_path.parent.mkdir(exist_ok=True, parents=True)
             self.trace(f"Final destination {destination_path}")
-            working_path = Path(mkdtemp(dir=str(target_path)))
+            working_path = Path(mkdtemp(dir=str(destination_path.parent)))
             try:
                 mkdirs, links, copies = self.driver.prepare(
-                    format, session, working_path
+                    format, session.photo_session, working_path
                 )
                 for md in mkdirs:
                     self.trace(f"mkdir {md}")

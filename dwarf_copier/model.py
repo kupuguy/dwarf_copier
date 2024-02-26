@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from fractions import Fraction
+from functools import cached_property
 from pathlib import Path
 from queue import Queue
 from string import Template
@@ -15,11 +16,12 @@ from dwarf_copier.configuration import (
     ConfigFormat,
     ConfigSource,
     ConfigTarget,
+    ConfigTemplate,
 )
 
 
 class ShotsInfo(BaseModel):
-    """Information about shots contained within a session directory."""
+    """Use shotsinfo.json to describe a session."""
 
     dec: float = Field(
         description="Declination (or 0.0 if not set). Example: 22.01469444", alias="DEC"
@@ -72,7 +74,7 @@ class PhotoSession(BaseModel):
     def format(self, template: Template, name: str = "") -> str:
         # TODO: make this lazier
         d = {
-            "bin": "1" if self.info.binning == "1x1" else "2",
+            "bin": "1" if self.info.binning == "1*1" else "2",
             "exp": self.info.exp_decimal,
             "gain": self.info.gain,
             "Y": f"{self.date.year:02}",
@@ -88,10 +90,67 @@ class PhotoSession(BaseModel):
         }
         return template.safe_substitute(d)
 
-    def destination_exists(self, base: Path, template: Template) -> bool:
-        """Check whether destination path already exists."""
-        dest_path = base / self.format(template)
-        return dest_path.exists()
+
+@dataclass
+class CopySession:
+    """PhotoSession bound to a target and format."""
+
+    photo_session: PhotoSession
+    config_destination: ConfigTarget
+    config_format: ConfigFormat
+
+    @cached_property
+    def destination(self) -> Path:
+        """Compute destination path."""
+        dest_path = self.config_destination.path / self.photo_session.format(
+            self.config_format.path
+        )
+        return dest_path
+
+    def format(self, template: Template, name: str = "") -> str:
+        return self.photo_session.format(template, name)
+
+
+@dataclass
+class Specials:
+    """Handler for special files: darks, flats, and biases."""
+
+    session: CopySession
+    source: ConfigSource
+    target: ConfigTarget
+    driver: "BaseDriver"
+    format: ConfigFormat
+    templates: list[ConfigTemplate]
+
+    # @cache
+    def destination(self, source: Path, template: ConfigTemplate) -> Path | None:
+        """Destination path for currently selected source."""
+        base = self.session.destination
+        return base / source
+
+    @cached_property
+    def candidates(self) -> set[Path]:
+        masks = [self.session.format(template) for template in self.templates]
+        candidates: set[Path] = set()
+        for m in masks:
+            candidates |= set(self.driver.match_wildcards(self.source.path, m))
+
+        return candidates
+
+    @cached_property
+    def best_candidate(self) -> Path | None:
+        """Find the best candidate.
+
+        This could be improved but for now we just return the first match found from
+        the first mask that has a match. That way at least manual darks should take
+        precedence over Dwarf automatic darks.
+        """
+        masks = [self.session.format(template) for template in self.templates]
+        for m in masks:
+            candidates = list(self.driver.match_wildcards(self.source.path, m))
+            if candidates:
+                return candidates[0]
+        return None
 
 
 @dataclass(frozen=True)
@@ -216,3 +275,7 @@ class BaseDriver(ABC):
     @abstractmethod
     def link_file(self, src: Path, dest: Path) -> None:
         """Create a link from dest back to src."""
+
+    @abstractmethod
+    def match_wildcards(self, base: Path, filename: str) -> list[Path]:
+        """Expand a wildcard pattern."""

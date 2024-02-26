@@ -13,7 +13,7 @@ from textual.widgets.data_table import ColumnKey, RowKey
 
 from dwarf_copier.configuration import ConfigSource, config
 from dwarf_copier.drivers import disk
-from dwarf_copier.model import PhotoSession, State
+from dwarf_copier.model import CopySession, PhotoSession, State
 from dwarf_copier.widgets.prev_next import PrevNext
 from dwarf_copier.widgets.sortable_table import SortableDataTable
 
@@ -181,8 +181,12 @@ class ShowSessions(Screen[State]):
             info = session.info
             fmt = self.target.format
             format = config.get_format(fmt)
-
-            if session.destination_exists(self.target.path, format.path):
+            copy_session = CopySession(
+                session,
+                self.target,
+                format,
+            )
+            if copy_session.destination.exists():
                 style = self.get_component_rich_style(
                     "sessions--existing", partial=True
                 )

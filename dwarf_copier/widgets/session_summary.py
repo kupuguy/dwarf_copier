@@ -1,6 +1,7 @@
 """Summary widget for a single session."""
+from fnmatch import fnmatch
 from pathlib import Path
-from typing import Sequence, TypeVar
+from typing import Iterable, Sequence
 
 from textual.app import ComposeResult
 from textual.containers import Container
@@ -8,16 +9,63 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import Button, DirectoryTree, Label, Static
 
+from dwarf_copier.configuration import ConfigSource
 from dwarf_copier.model import PhotoSession
 
-CellType = TypeVar("CellType")
-"""Type used for cells in the DataTable."""
 
-"""Model dialog to select a directory."""
+class FilteredDirectoryTree(DirectoryTree):
+    """DirectoryTree filtered to only matching patterns."""
+
+    def __init__(
+        self,
+        patterns: list[str],
+        path: str | Path,
+        *,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+        disabled: bool = False,
+    ) -> None:
+        self.patterns = patterns
+        self.parents: set[str] = set()
+        for p in patterns:
+            p = p.replace("\\", "/")
+            parts = p.split("/")
+            for i in range(len(parts) - 1):
+                self.parents.add("/".join(parts[: i + 1]))
+
+        super().__init__(
+            path=path, name=name, id=id, classes=classes, disabled=disabled
+        )
+
+    def matches(self, p: Path, include_parents: bool = True) -> bool:
+        filename = str(p.relative_to(self.path))
+        self.app.log.info(f"{filename=}")
+
+        if include_parents:
+            return any(fnmatch(filename, pattern) for pattern in self.patterns) or any(
+                fnmatch(filename, parent) for parent in self.parents
+            )
+        else:
+            return any(fnmatch(filename, pattern) for pattern in self.patterns)
+
+    def filter_paths(self, paths: Iterable[Path]) -> Iterable[Path]:
+        self.app.log.info(f"{self.patterns=}")
+
+        paths = [path for path in paths if self.matches(path)]
+        if not paths:
+            self.notify("No matching directories found.", severity="error")
+        return paths
+
+    def on_directory_tree_directory_selected(
+        self, event: DirectoryTree.DirectorySelected
+    ) -> None:
+        if not self.matches(event.path, include_parents=False):
+            event.stop()
 
 
 class DirSelectScreen(ModalScreen[Path | None]):
-    """Screen with a dialog to quit."""
+    """Modal dialog to select a single directory."""
 
     DEFAULT_CSS = """
         DirSelectScreen {
@@ -44,17 +92,22 @@ class DirSelectScreen(ModalScreen[Path | None]):
         self,
         caption: str,
         base: Path,
+        masks: list[str],
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
     ) -> None:
         self.caption = caption
         self.base = base
+        self.masks = masks
         super().__init__(name=name, id=id, classes=classes)
 
     def compose(self) -> ComposeResult:
         with Container(id="dialog"):
-            yield DirectoryTree(self.base)
+            yield FilteredDirectoryTree(
+                self.masks,
+                self.base,
+            )
             yield Container(Button("Clear", variant="error", id="clear"), id="buttons")
 
     def on_mount(self) -> None:
@@ -98,11 +151,15 @@ class DirSelector(Widget):
         yield Container(Static(self.message, id="path"), id="message")
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.path = await self.app.push_screen_wait(
-            DirSelectScreen(self.label.lower(), self.base)
+        def update_path(path: Path | None) -> None:
+            self.path = path
+            path_control: Static = self.query_one("#path", Static)
+            path_control.update(self.message)
+
+        self.app.push_screen(
+            DirSelectScreen(self.label.lower(), self.base, self.masks),
+            callback=update_path,
         )
-        path_control: Static = self.query_one("#path", Static)
-        path_control.update(self.message)
 
     @property
     def message(self) -> str:
@@ -123,14 +180,15 @@ class SessionSummary(Widget):
     def __init__(
         self,
         session: PhotoSession,
-        source_path: Path,
+        source: ConfigSource,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
         disabled: bool = False,
     ) -> None:
         self.session = session
-        self.source_path = source_path
+        self.source_path = source.path
+        self.source = source
         super().__init__(name=name, id=id, classes=classes, disabled=disabled)
 
     def compose(self) -> ComposeResult:
@@ -140,6 +198,11 @@ class SessionSummary(Widget):
             yield Static(str(self.session.path))
             yield Label("To")
             yield Static("...")
-            yield DirSelector("Darks", self.session.darks, self.source_path)
+            dark_masks = [
+                self.session.format(template) for template in self.source.darks
+            ]
+            yield DirSelector(
+                "Darks", self.session.darks, self.source_path, masks=dark_masks
+            )
             yield DirSelector("Flats", self.session.darks, self.source_path)
             yield DirSelector("Biases", self.session.darks, self.source_path)

@@ -38,7 +38,7 @@ class PreCopy(Screen[State]):
         yield Header()
         with VerticalScroll(classes="selected_sessions"):
             for index, ps in enumerate(self.state.selected):
-                yield SessionSummary(ps, self.state.source.path, id=f"session_{index}")
+                yield SessionSummary(ps, self.state.source, id=f"session_{index}")
         self.log_widget = Log()
         yield self.log_widget
         pn = PrevNext()
@@ -77,8 +77,8 @@ if __name__ == "__main__":
                 name="Test Source",
                 path=source_path,
                 darks=[
-                    "../DWARF_RAW_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}*",
-                    "../DWARF_DARK/exp_${exp}_gain_${gain}_bin_${bin}",
+                    "DWARF_RAW_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}*",
+                    "DWARF_DARK/exp_${exp}_gain_${gain}_bin_${bin}",
                 ],
             )
             target = ConfigTarget(
@@ -89,7 +89,8 @@ if __name__ == "__main__":
             driver = disk.Driver(source.path)
             selected_paths = [
                 source_path
-                / "DWARF_RAW_Jupiter_EXP_0.0008_GAIN_0_2024-01-16-22-16-30-229"
+                / "DWARF_RAW_Jupiter_EXP_0.0008_GAIN_0_2024-01-16-22-16-30-229",
+                source_path / "DWARF_RAW_M1_EXP_15_GAIN_80_2024-01-18-21-04-26-954",
             ]
             selected = [
                 s for p in selected_paths if (s := driver.create_session(p)) is not None

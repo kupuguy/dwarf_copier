@@ -6,12 +6,15 @@ sources:
     type: Drive
     path: "C:\\Backup\\Dwarf_II_2024_01_18\\Astronomy"
     darks:
-      - "../DWARF_RAW_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}*"
-      - "../DWARF_DARK/exp_${exp}_gain_${gain}_bin_${bin}"
+      - "DWARF_RAW_EXP_${exp}_GAIN_${gain}_${Y}-${M}-${d}*"
+      - "DWARF_DARK/exp_${exp}_gain_${gain}_bin_${bin}"
     link: true
   - name: MicroSD
     type: Drive
-    path: D:\DWARF_II\
+    path: D:\DWARF_II\Astronomy
+  - name: SshFS
+    type: Drive
+    path: Y:\Astronomy
   - name: WiFi Direct
     type: FTP
     ip_address: 192.168.88.1

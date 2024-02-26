@@ -6,3 +6,4 @@ TODO
 - Lookup/display friendly name of targets
 - Filter/sort session display
 - Command line args to bypass screen(s)
+- Matching candidate specials doesn't currently take binning into account.

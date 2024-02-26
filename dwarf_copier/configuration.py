@@ -73,7 +73,27 @@ class ConfigSourceBase(BaseModel):
     ] = False
 
     darks: list[ConfigTemplate] = Field(
-        default=[], description="List of templated paths that may contain darks"
+        default=[
+            ConfigTemplate("DWARF_DARK_EXP_${exp}_GAIN_${gain}_*"),
+            ConfigTemplate("DWARF_RAW_EXP_${exp}_GAIN_${gain}_*"),
+            ConfigTemplate("DWARF_DARK/exp_${exp}_gain_${gain}_bin_${bin}"),
+        ],
+        description="List of templated paths that may contain darks",
+    )
+    flats: list[ConfigTemplate] = Field(
+        default=[
+            ConfigTemplate("DWARF_FLAT_EXP_${exp}_GAIN_${gain}_*"),
+            ConfigTemplate("DWARF_RAW_EXP_${exp}_GAIN_${gain}_*"),
+        ],
+        description="List of templated paths that may contain flats",
+    )
+    biases: list[ConfigTemplate] = Field(
+        default=[
+            ConfigTemplate("DWARF_RAW_${target}_EXP_0.0001_GAIN_${gain}_*"),
+            ConfigTemplate("DWARF_BIASES_EXP_0.0001_GAIN_${gain}_*"),
+            ConfigTemplate("DWARF_RAW_EXP_0.0001_GAIN_${gain}_*"),
+        ],
+        description="List of templated paths that may contain biases",
     )
 
     def describe(self) -> str:
@@ -161,7 +181,16 @@ class ConfigFormat(BaseModel):
     description: str = ""
     path: ConfigTemplate = Field(description="Destination directory")
     darks: ConfigTemplate = Field(
-        description="Destination for darks relative to <path>"
+        default=ConfigTemplate("../DWARF_DARK_EXP_${exp}_GAIN_${gain}_*"),
+        description="Destination for darks relative to <path>",
+    )
+    flats: ConfigTemplate = Field(
+        default=ConfigTemplate("../DWARF_FLATS_EXP_${exp}_GAIN_${gain}_*"),
+        description="Destination for flats relative to <path>",
+    )
+    biases: ConfigTemplate = Field(
+        default=ConfigTemplate("../DWARF_BIASES_EXP_${exp}_GAIN_${gain}_*"),
+        description="Destination for biases relative to <path>",
     )
     directories: list[str] = Field(
         default=[], description="List of directories to create relative to <path>"
@@ -306,12 +335,19 @@ DEFAULT_CONFIG = ConfigurationModel(
             description="Copy into Siril directory structure",
             path="${name}_EXP_${exp}_GAIN_${gain}_${Y}_${M}_${d}",
             darks="darks",
+            flats="flats",
+            biases="biases",
             directories=["darks", "lights", "flats", "biases"],
             link_or_copy=[
+                ConfigCopy(
+                    source="stacked-16_*.fits", destination="${name}"
+                ),  # New stacked image.
                 ConfigCopy(source="shotsInfo.json", destination="shotsInfo.json"),
                 ConfigCopy(source="*.fits", destination="lights/${name}"),
                 ConfigCopy(source="*.jpg", destination="${target}-${name}"),
-                ConfigCopy(source="*.png", destination="${target}-${name}"),
+                ConfigCopy(
+                    source="*.png", destination="${target}-${name}"
+                ),  # Old stacked image.
             ],
         ),
     ],

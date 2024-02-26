@@ -11,7 +11,8 @@ from dwarf_copier.configuration import (
     ConfigTarget,
     ConfigurationModel,
 )
-from dwarf_copier.model import PhotoSession, ShotsInfo
+from dwarf_copier.drivers import disk
+from dwarf_copier.model import PhotoSession, ShotsInfo, State
 
 
 @pytest.fixture
@@ -34,7 +35,14 @@ def config_dummy(tmp_path: Path, astronomy_source: Path) -> ConfigurationModel:
     return ConfigurationModel(
         general=ConfigGeneral(),
         sources=[
-            ConfigSourceDrive(name="TestEnv", path=astronomy_source),
+            ConfigSourceDrive(
+                name="TestEnv",
+                path=astronomy_source,
+                darks=[
+                    "DWARF_RAW_EXP_${exp}_GAIN_${gain}_*",
+                    "DWARF_DARK/exp_${exp}_gain_${gain}_bin_${bin}",
+                ],
+            ),
         ],
         targets=[
             ConfigTarget(name="Backup", path=tmp_path / "backup", format="Backup"),
@@ -127,3 +135,20 @@ def photo_sessions(astronomy_source: Path) -> list[PhotoSession]:
             date=datetime(2024, 1, 16, 15, 2, 35, 270000),
         ),
     ]
+
+
+@pytest.fixture
+def state_dummy(
+    config_dummy: ConfigurationModel, photo_sessions: list[PhotoSession]
+) -> State:
+    config = config_dummy
+    source = config.sources[0]
+    target = config.targets[0]
+    state = State(
+        source=source,
+        target=target,
+        selected=photo_sessions,
+        format=config.get_format(target.format),
+        driver=disk.Driver(source.path),
+    )
+    return state
