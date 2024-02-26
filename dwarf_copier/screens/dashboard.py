@@ -11,7 +11,6 @@ from textual.widgets import Footer, Header
 from textual.worker import Worker
 
 from dwarf_copier.configuration import config
-from dwarf_copier.drivers import disk
 from dwarf_copier.model import PartialState, State
 from dwarf_copier.screens.copy_files import CopyFiles
 from dwarf_copier.screens.pre_copy import PreCopy
@@ -40,7 +39,6 @@ class DashboardScreen(Screen):
             target=None,
             selected=[],
             format=None,
-            driver=None,
         )
         super().__init__(name=name, id=id, classes=classes)
 
@@ -86,7 +84,6 @@ class DashboardScreen(Screen):
         return False
 
     async def when_select_source(self) -> StateMachineStep:
-        self.driver = None
         new_state = await self.app.push_screen(
             screen=SelectSourceTarget(self.state),
             wait_for_dismiss=True,
@@ -103,9 +100,6 @@ class DashboardScreen(Screen):
         state = self.state
         if state.source is None or state.target is None:
             return self.when_select_source
-
-        if state.driver is None:
-            self.state = state = replace(state, driver=disk.Driver(state.source.path))
 
         new_state: State = await self.app.push_screen_wait(
             screen=ShowSessions(State.from_partial(state)),

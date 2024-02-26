@@ -7,8 +7,9 @@ from functools import cached_property
 from pathlib import Path
 from typing import Callable
 
-from dwarf_copier.configuration import ConfigFormat
-from dwarf_copier.model import BaseDriver, PhotoSession, ShotsInfo
+from dwarf_copier.configuration import BaseDriver, ConfigFormat
+from dwarf_copier.shots_info import ShotsInfo
+from dwarf_copier.source_directory import SourceDirectory
 
 FOLDER_PATTERN = (
     "DWARF_RAW_<target>_EXP_<exp>_GAIN_<gain>_"
@@ -40,14 +41,14 @@ class Driver(BaseDriver):
         """Pre-compiled regex to match our template."""
         return self._folder_regex(FOLDER_PATTERN)
 
-    def list_dirs(self, callback: Callable[[PhotoSession | None], None]) -> None:
+    def list_dirs(self, callback: Callable[[SourceDirectory | None], None]) -> None:
         for p in self.root.glob("DWARF_RAW*"):
             session = self.create_session(p)
             if session is not None:
                 callback(session)
         callback(None)
 
-    def create_session(self, p: Path) -> PhotoSession | None:
+    def create_session(self, p: Path) -> SourceDirectory | None:
         if (
             p.is_dir()
             and (p / SHOTS_INFO).exists()
@@ -59,7 +60,7 @@ class Driver(BaseDriver):
                 int(s)
                 for s in m.group("year", "mon", "day", "hour", "min", "sec", "millisec")
             ]
-            return PhotoSession(
+            return SourceDirectory(
                 path=p,
                 info=info,
                 date=datetime(year, mon, day, hour, min, sec, millisec * 1000),
@@ -69,7 +70,7 @@ class Driver(BaseDriver):
     def prepare(
         self,
         format: ConfigFormat,
-        session: PhotoSession,
+        session: SourceDirectory,
         target_path: Path,
     ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
         """Build maps of files to be copied or linked."""

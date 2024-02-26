@@ -6,9 +6,10 @@ from pytest_mock import MockFixture
 from textual.app import App
 
 from dwarf_copier.configuration import ConfigurationModel
-from dwarf_copier.drivers import disk
-from dwarf_copier.model import PhotoSession, ShotsInfo, State
+from dwarf_copier.model import State
 from dwarf_copier.screens.copy_files import CopyFiles
+from dwarf_copier.shots_info import ShotsInfo
+from dwarf_copier.source_directory import SourceDirectory
 
 pytestmark = pytest.mark.anyio
 
@@ -34,8 +35,8 @@ async def test_copy_files(
     config_source = config_dummy.get_source(source)
     config_target = config_dummy.get_target(target)
 
-    selected: list[PhotoSession] = [
-        PhotoSession(
+    selected: list[SourceDirectory] = [
+        SourceDirectory(
             path=Path(
                 astronomy_source / "DWARF_RAW_M1_EXP_15_GAIN_80_2024-01-18-21-04-26-954"
             ),
@@ -67,7 +68,6 @@ async def test_copy_files(
             config_target,
             selected,
             config_dummy.get_format(config_target.format),
-            driver=disk.Driver(config_source.path),
         )
         copy_screen = CopyFiles(state)
         await app.push_screen(

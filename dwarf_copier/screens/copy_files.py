@@ -13,6 +13,7 @@ from textual.widgets import Footer, Header, Log
 from textual.worker import Worker
 
 from dwarf_copier.configuration import (
+    BaseDriver,
     ConfigFormat,
     ConfigSource,
     ConfigTarget,
@@ -20,14 +21,13 @@ from dwarf_copier.configuration import (
     config,
 )
 from dwarf_copier.model import (
-    BaseDriver,
     CommandQueue,
     CopyCommand,
-    CopySession,
+    DestinationDirectory,
     LinkCommand,
-    PhotoSession,
     State,
 )
+from dwarf_copier.source_directory import SourceDirectory
 from dwarf_copier.widgets.copier import Copier, CopyGroup
 from dwarf_copier.widgets.prev_next import PrevNext
 
@@ -35,13 +35,12 @@ from dwarf_copier.widgets.prev_next import PrevNext
 class CopyFiles(Screen[State]):
     """Screen to display sessions present on a source."""
 
-    state: State
     config: ConfigurationModel
-    selected: list[PhotoSession]
-    sessions: dict[str, PhotoSession]
+    selected: list[SourceDirectory]
+    sessions: dict[str, SourceDirectory]
     driver: BaseDriver
     queue: CommandQueue
-    session: PhotoSession | None
+    session: SourceDirectory | None
     controller: Worker[None] | None = None
     total_copied: int = 0
 
@@ -54,14 +53,15 @@ class CopyFiles(Screen[State]):
         self.target = state.target
         self.selected = state.selected
         self.format = state.format
-        self.driver = state.driver
         self.queue = Queue()
         super().__init__()
 
     def compose(self) -> ComposeResult:
         """Create our widgets."""
         yield Header()
-        yield CopyGroup(config.general.workers, self.driver, self.queue, id="copier")
+        yield CopyGroup(
+            config.general.workers, self.source.driver, self.queue, id="copier"
+        )
         self.log_widget = Log()
         yield self.log_widget
         yield PrevNext()
@@ -82,7 +82,7 @@ class CopyFiles(Screen[State]):
     @work
     async def copy_controller(
         self,
-        sessions: list[PhotoSession],
+        sessions: list[SourceDirectory],
         source: ConfigSource,
         target: ConfigTarget,
         format: ConfigFormat,
@@ -96,21 +96,21 @@ class CopyFiles(Screen[State]):
 
     async def copy_controller_impl(
         self,
-        sessions: list[PhotoSession],
+        source_directories: list[SourceDirectory],
         source: ConfigSource,
         target: ConfigTarget,
         format: ConfigFormat,
     ) -> None:
-        for photo_session in sessions:
+        for source_dir in source_directories:
             self.trace("")
-            session = CopySession(photo_session, target, format)
+            session = DestinationDirectory(source_dir, target, format)
             destination_path = session.destination
             destination_path.parent.mkdir(exist_ok=True, parents=True)
             self.trace(f"Final destination {destination_path}")
             working_path = Path(mkdtemp(dir=str(destination_path.parent)))
             try:
-                mkdirs, links, copies = self.driver.prepare(
-                    format, session.photo_session, working_path
+                mkdirs, links, copies = source.driver.prepare(
+                    format, session.source_directory, working_path
                 )
                 for md in mkdirs:
                     self.trace(f"mkdir {md}")

@@ -13,7 +13,8 @@ from textual.widgets.data_table import ColumnKey, RowKey
 
 from dwarf_copier.configuration import ConfigSource, config
 from dwarf_copier.drivers import disk
-from dwarf_copier.model import CopySession, PhotoSession, State
+from dwarf_copier.model import DestinationDirectory, State
+from dwarf_copier.source_directory import SourceDirectory
 from dwarf_copier.widgets.prev_next import PrevNext
 from dwarf_copier.widgets.sortable_table import SortableDataTable
 
@@ -77,7 +78,7 @@ class ShowSessions(Screen[State]):
 
     state: State
     selected_keys: set[RowKey]
-    sessions: dict[RowKey, PhotoSession]
+    sessions: dict[RowKey, SourceDirectory]
     column_keys: list[ColumnKey]
 
     @dataclass
@@ -87,7 +88,7 @@ class ShowSessions(Screen[State]):
         None indicates the worker has finished.
         """
 
-        session: PhotoSession | None
+        session: SourceDirectory | None
 
     def __init__(
         self,
@@ -119,18 +120,18 @@ class ShowSessions(Screen[State]):
         self.populate()
 
     def populate(self) -> None:
-        def callback(session: PhotoSession | None) -> None:
+        def callback(session: SourceDirectory | None) -> None:
             self.post_message(self.SessionFound(session))
 
         self.list_dirs(self.source, callback)
 
     @property
-    def selected(self) -> list[PhotoSession]:
+    def selected(self) -> list[SourceDirectory]:
         return [self.sessions[k] for k in self.selected_keys]
 
     @work(thread=True)
     def list_dirs(
-        self, source: ConfigSource, callback: Callable[[PhotoSession | None], None]
+        self, source: ConfigSource, callback: Callable[[SourceDirectory | None], None]
     ) -> None:
         driver = disk.Driver(source.path)
         driver.list_dirs(callback=callback)
@@ -181,7 +182,7 @@ class ShowSessions(Screen[State]):
             info = session.info
             fmt = self.target.format
             format = config.get_format(fmt)
-            copy_session = CopySession(
+            copy_session = DestinationDirectory(
                 session,
                 self.target,
                 format,

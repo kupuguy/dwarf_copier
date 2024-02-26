@@ -11,10 +11,10 @@ from textual.reactive import reactive
 from textual.widgets import Label
 from textual.worker import Worker, get_current_worker
 
+from dwarf_copier.configuration import BaseDriver
 from dwarf_copier.model import (
     QUIT_COMMAND,
     BaseCommand,
-    BaseDriver,
     CommandQueue,
     CopyCommand,
     LinkCommand,

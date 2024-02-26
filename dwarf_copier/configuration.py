@@ -6,10 +6,12 @@ Read/write configuration file. Searches locations to find an available file.
 import logging
 import os
 import sys
+from abc import ABC, abstractmethod
 from enum import StrEnum
+from functools import cached_property
 from pathlib import Path
 from string import Template
-from typing import Annotated, Literal, Self, Sequence
+from typing import Annotated, Callable, Literal, Self, Sequence
 
 import rich.text
 import yaml
@@ -24,6 +26,8 @@ from pydantic import (
 )
 from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from dwarf_copier.source_directory import SourceDirectory
 
 __all__ = ["config"]
 
@@ -47,6 +51,81 @@ class SourceType(StrEnum):
     DRIVE = "Drive"
     FTP = "FTP"
     MTP = "MTP"
+
+
+class ConfigCopy(BaseModel):
+    """Single copy or link."""
+
+    source: str = Field(description="Wildcard pattern for matching source files")
+    destination: ConfigTemplate = Field(description="Target filename")
+
+
+class ConfigFormat(BaseModel):
+    """File layout for target."""
+
+    name: str
+    description: str = ""
+    path: ConfigTemplate = Field(description="Destination directory")
+    darks: ConfigTemplate = Field(
+        default=ConfigTemplate("../DWARF_DARK_EXP_${exp}_GAIN_${gain}_*"),
+        description="Destination for darks relative to <path>",
+    )
+    flats: ConfigTemplate = Field(
+        default=ConfigTemplate("../DWARF_FLATS_EXP_${exp}_GAIN_${gain}_*"),
+        description="Destination for flats relative to <path>",
+    )
+    biases: ConfigTemplate = Field(
+        default=ConfigTemplate("../DWARF_BIASES_EXP_${exp}_GAIN_${gain}_*"),
+        description="Destination for biases relative to <path>",
+    )
+    directories: list[str] = Field(
+        default=[], description="List of directories to create relative to <path>"
+    )
+    link_or_copy: list[ConfigCopy] = Field(
+        default=[], description="Groups of files to link or copy"
+    )
+    copy_only: list[ConfigCopy] = Field(
+        default=[], description="List of files to copy, never link"
+    )
+
+
+class BaseDriver(ABC):
+    """Interface used to access photo files.
+
+    Different concrete implementations are used for disk drives, ftp, etc.
+    """
+
+    def __init__(self, root: Path) -> None:
+        pass
+
+    @abstractmethod
+    def list_dirs(self, callback: Callable[[SourceDirectory | None], None]) -> None:
+        ...
+
+    @abstractmethod
+    def prepare(
+        self,
+        format: ConfigFormat,
+        session: SourceDirectory,
+        target_path: Path,
+    ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
+        """Build maps of files to be copied or linked."""
+
+    @abstractmethod
+    def copy_file(self, src: Path, dest: Path) -> None:
+        """Copy a single file."""
+
+    @abstractmethod
+    def link_file(self, src: Path, dest: Path) -> None:
+        """Create a link from dest back to src."""
+
+    @abstractmethod
+    def match_wildcards(self, base: Path, filename: str) -> list[Path]:
+        """Expand a wildcard pattern."""
+
+    @abstractmethod
+    def create_session(self, p: Path) -> SourceDirectory | None:
+        """Create reference to a source directory."""
 
 
 class ConfigGeneral(BaseModel):
@@ -105,11 +184,22 @@ class ConfigSourceBase(BaseModel):
             ]
         )
 
+    @cached_property
+    def driver(self) -> BaseDriver:
+        raise NotImplementedError()
+
 
 class ConfigSourceDrive(ConfigSourceBase):
     """Defines a source of Dwarf data, may be a local path or a network drive."""
 
     type: Literal[SourceType.DRIVE] = SourceType.DRIVE
+
+    @cached_property
+    def driver(self) -> "BaseDriver":
+        """Return the appropriate driver for this source."""
+        from dwarf_copier.drivers import disk
+
+        return disk.Driver(self.path)
 
 
 class ConfigSourceFTP(ConfigSourceBase):
@@ -165,42 +255,6 @@ class ConfigTarget(BaseModel):
     @classmethod
     def valid_path(cls, v: str | Path) -> Path:
         return Path(v).expanduser().resolve()
-
-
-class ConfigCopy(BaseModel):
-    """Single copy or link."""
-
-    source: str = Field(description="Wildcard pattern for matching source files")
-    destination: ConfigTemplate = Field(description="Target filename")
-
-
-class ConfigFormat(BaseModel):
-    """File layout for target."""
-
-    name: str
-    description: str = ""
-    path: ConfigTemplate = Field(description="Destination directory")
-    darks: ConfigTemplate = Field(
-        default=ConfigTemplate("../DWARF_DARK_EXP_${exp}_GAIN_${gain}_*"),
-        description="Destination for darks relative to <path>",
-    )
-    flats: ConfigTemplate = Field(
-        default=ConfigTemplate("../DWARF_FLATS_EXP_${exp}_GAIN_${gain}_*"),
-        description="Destination for flats relative to <path>",
-    )
-    biases: ConfigTemplate = Field(
-        default=ConfigTemplate("../DWARF_BIASES_EXP_${exp}_GAIN_${gain}_*"),
-        description="Destination for biases relative to <path>",
-    )
-    directories: list[str] = Field(
-        default=[], description="List of directories to create relative to <path>"
-    )
-    link_or_copy: list[ConfigCopy] = Field(
-        default=[], description="Groups of files to link or copy"
-    )
-    copy_only: list[ConfigCopy] = Field(
-        default=[], description="List of files to copy, never link"
-    )
 
 
 class ConfigurationModel(BaseModel):

@@ -15,7 +15,6 @@ from textual.widgets import Footer, Header, Log
 
 from dwarf_copier import configuration
 from dwarf_copier.configuration import ConfigTarget
-from dwarf_copier.drivers import disk
 from dwarf_copier.model import State
 from dwarf_copier.widgets.prev_next import PrevNext
 from dwarf_copier.widgets.session_summary import SessionSummary
@@ -86,7 +85,7 @@ if __name__ == "__main__":
                 path="C:/TEST_TARGET",
                 format="Backup",
             )
-            driver = disk.Driver(source.path)
+            driver = source.driver
             selected_paths = [
                 source_path
                 / "DWARF_RAW_Jupiter_EXP_0.0008_GAIN_0_2024-01-16-22-16-30-229",
@@ -96,7 +95,7 @@ if __name__ == "__main__":
                 s for p in selected_paths if (s := driver.create_session(p)) is not None
             ]
             format = configuration.config.get_format("Backup")
-            state = State(source, target, selected, format, driver)
+            state = State(source, target, selected, format)
             screen = PreCopy(state)
             new_state = await self.app.push_screen_wait(screen=screen)
             self.exit(new_state)

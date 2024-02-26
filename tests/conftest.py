@@ -11,8 +11,9 @@ from dwarf_copier.configuration import (
     ConfigTarget,
     ConfigurationModel,
 )
-from dwarf_copier.drivers import disk
-from dwarf_copier.model import PhotoSession, ShotsInfo, State
+from dwarf_copier.model import State
+from dwarf_copier.shots_info import ShotsInfo
+from dwarf_copier.source_directory import SourceDirectory
 
 
 @pytest.fixture
@@ -74,9 +75,9 @@ def config_dummy(tmp_path: Path, astronomy_source: Path) -> ConfigurationModel:
 
 
 @pytest.fixture
-def photo_sessions(astronomy_source: Path) -> list[PhotoSession]:
+def source_directories(astronomy_source: Path) -> list[SourceDirectory]:
     return [
-        PhotoSession(
+        SourceDirectory(
             path=Path(
                 astronomy_source / "DWARF_RAW_M1_EXP_15_GAIN_80_2024-01-18-21-04-26-954"
             ),
@@ -95,7 +96,7 @@ def photo_sessions(astronomy_source: Path) -> list[PhotoSession]:
             ),
             date=datetime(2024, 1, 18, 21, 4, 26, 954000),
         ),
-        PhotoSession(
+        SourceDirectory(
             path=Path(
                 astronomy_source / "DWARF_RAW_M43_EXP_5_GAIN_60_2024-01-22-19-04-10-409"
             ),
@@ -114,7 +115,7 @@ def photo_sessions(astronomy_source: Path) -> list[PhotoSession]:
             ),
             date=datetime(2024, 1, 22, 19, 4, 10, 409000),
         ),
-        PhotoSession(
+        SourceDirectory(
             path=Path(
                 astronomy_source
                 / "DWARF_RAW_Moon_EXP_0.0025_GAIN_0_2024-01-16-15-02-35-270"
@@ -139,7 +140,7 @@ def photo_sessions(astronomy_source: Path) -> list[PhotoSession]:
 
 @pytest.fixture
 def state_dummy(
-    config_dummy: ConfigurationModel, photo_sessions: list[PhotoSession]
+    config_dummy: ConfigurationModel, source_directories: list[SourceDirectory]
 ) -> State:
     config = config_dummy
     source = config.sources[0]
@@ -147,8 +148,7 @@ def state_dummy(
     state = State(
         source=source,
         target=target,
-        selected=photo_sessions,
+        selected=source_directories,
         format=config.get_format(target.format),
-        driver=disk.Driver(source.path),
     )
     return state

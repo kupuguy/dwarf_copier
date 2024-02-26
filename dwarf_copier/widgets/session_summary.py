@@ -10,7 +10,7 @@ from textual.widget import Widget
 from textual.widgets import Button, DirectoryTree, Label, Static
 
 from dwarf_copier.configuration import ConfigSource
-from dwarf_copier.model import PhotoSession
+from dwarf_copier.source_directory import SourceDirectory
 
 
 class FilteredDirectoryTree(DirectoryTree):
@@ -179,7 +179,7 @@ class SessionSummary(Widget):
 
     def __init__(
         self,
-        session: PhotoSession,
+        session: SourceDirectory,
         source: ConfigSource,
         name: str | None = None,
         id: str | None = None,

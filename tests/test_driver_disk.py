@@ -7,19 +7,21 @@ from pytest_mock import MockFixture
 from textual import work
 from textual.app import App
 
+from dwarf_copier.configuration import BaseDriver
 from dwarf_copier.drivers import disk
-from dwarf_copier.model import BaseDriver, PhotoSession, ShotsInfo
+from dwarf_copier.shots_info import ShotsInfo
+from dwarf_copier.source_directory import SourceDirectory
 
 pytestmark = pytest.mark.anyio
 
 
 class RunApp(App):
-    def cb(self, callable: Callable[[PhotoSession | None], None]) -> None:
+    def cb(self, callable: Callable[[SourceDirectory | None], None]) -> None:
         ...
 
     @work(thread=True)
     def list_dirs(
-        self, driver: BaseDriver, callback: Callable[[PhotoSession | None], None]
+        self, driver: BaseDriver, callback: Callable[[SourceDirectory | None], None]
     ) -> None:
         driver.list_dirs(callback=callback)
 
@@ -36,7 +38,7 @@ async def test_list_dirs(
     expected = [
         (
             (
-                PhotoSession(
+                SourceDirectory(
                     path=Path(
                         astronomy_source
                         / "DWARF_RAW_M1_EXP_15_GAIN_80_2024-01-18-21-04-26-954"
@@ -60,7 +62,7 @@ async def test_list_dirs(
         ),
         (
             (
-                PhotoSession(
+                SourceDirectory(
                     path=Path(
                         astronomy_source
                         / "DWARF_RAW_M43_EXP_5_GAIN_60_2024-01-22-19-04-10-409"
@@ -84,7 +86,7 @@ async def test_list_dirs(
         ),
         (
             (
-                PhotoSession(
+                SourceDirectory(
                     path=Path(
                         astronomy_source
                         / "DWARF_RAW_Moon_EXP_0.0025_GAIN_0_2024-01-16-15-02-35-270"

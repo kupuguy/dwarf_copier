@@ -2,15 +2,16 @@ from pathlib import Path
 
 import pytest
 
-from dwarf_copier.model import CopySession, PhotoSession, Specials, State
+from dwarf_copier.model import DestinationDirectory, Specials, State
+from dwarf_copier.source_directory import SourceDirectory
 
 
 @pytest.fixture
-def photo_session(
-    request: pytest.FixtureRequest, photo_sessions: list[PhotoSession]
-) -> PhotoSession:
+def source_directory(
+    request: pytest.FixtureRequest, source_directories: list[SourceDirectory]
+) -> SourceDirectory:
     assert isinstance(request.param, str)
-    matches = [p for p in photo_sessions if f"_{request.param}_" in str(p.path)]
+    matches = [p for p in source_directories if f"_{request.param}_" in str(p.path)]
     assert len(matches) == 1
     return matches[0]
 
@@ -34,7 +35,7 @@ def expected_path(
 
 
 @pytest.mark.parametrize(
-    "photo_session,expected_paths",
+    "source_directory,expected_paths",
     [
         ("M1", set(["DWARF_DARK/exp_15_gain_80_bin_1"])),
         (
@@ -51,13 +52,12 @@ def expected_path(
     indirect=True,
 )
 def test_darks(
-    state_dummy: State, photo_session: PhotoSession, expected_paths: set[Path]
+    state_dummy: State, source_directory: SourceDirectory, expected_paths: set[Path]
 ) -> None:
     special = Specials(
-        CopySession(photo_session, state_dummy.target, state_dummy.format),
+        DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
         state_dummy.target,
-        state_dummy.driver,
         state_dummy.format,
         state_dummy.source.darks,
     )
@@ -65,7 +65,7 @@ def test_darks(
 
 
 @pytest.mark.parametrize(
-    "photo_session,expected_paths",
+    "source_directory,expected_paths",
     [
         ("M1", set(["DWARF_RAW_M1_EXP_0.0001_GAIN_80_2024-02-12-22-11-17-881"])),
         ("M43", set()),
@@ -74,13 +74,12 @@ def test_darks(
     indirect=True,
 )
 def test_biases(
-    state_dummy: State, photo_session: PhotoSession, expected_paths: set[Path]
+    state_dummy: State, source_directory: SourceDirectory, expected_paths: set[Path]
 ) -> None:
     special = Specials(
-        CopySession(photo_session, state_dummy.target, state_dummy.format),
+        DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
         state_dummy.target,
-        state_dummy.driver,
         state_dummy.format,
         state_dummy.source.biases,
     )
@@ -88,7 +87,7 @@ def test_biases(
 
 
 @pytest.mark.parametrize(
-    "photo_session,expected_paths",
+    "source_directory,expected_paths",
     [
         ("M1", set([])),
         (
@@ -104,13 +103,12 @@ def test_biases(
     indirect=True,
 )
 def test_flats(
-    state_dummy: State, photo_session: PhotoSession, expected_paths: set[Path]
+    state_dummy: State, source_directory: SourceDirectory, expected_paths: set[Path]
 ) -> None:
     special = Specials(
-        CopySession(photo_session, state_dummy.target, state_dummy.format),
+        DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
         state_dummy.target,
-        state_dummy.driver,
         state_dummy.format,
         state_dummy.source.flats,
     )
@@ -118,7 +116,7 @@ def test_flats(
 
 
 @pytest.mark.parametrize(
-    "photo_session,expected_path",
+    "source_directory,expected_path",
     [
         ("M1", "DWARF_DARK/exp_15_gain_80_bin_1"),
         (
@@ -130,13 +128,12 @@ def test_flats(
     indirect=True,
 )
 def test_best_candidate(
-    state_dummy: State, photo_session: PhotoSession, expected_path: Path | None
+    state_dummy: State, source_directory: SourceDirectory, expected_path: Path | None
 ) -> None:
     special = Specials(
-        CopySession(photo_session, state_dummy.target, state_dummy.format),
+        DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
         state_dummy.target,
-        state_dummy.driver,
         state_dummy.format,
         state_dummy.source.darks,
     )
@@ -144,7 +141,7 @@ def test_best_candidate(
 
 
 @pytest.mark.parametrize(
-    "photo_session,expected_path",
+    "source_directory,expected_path",
     [
         ("M1", "DWARF_RAW_M1_EXP_15_GAIN_80_2024-01-18-21-04-26-954"),
         (
@@ -153,11 +150,13 @@ def test_best_candidate(
         ),
         ("Moon", "DWARF_RAW_Moon_EXP_0.0025_GAIN_0_2024-01-16-15-02-35-270"),
     ],
-    indirect=["photo_session"],
+    indirect=["source_directory"],
 )
 def test_destination(
-    state_dummy: State, photo_session: PhotoSession, expected_path: str
+    state_dummy: State, source_directory: SourceDirectory, expected_path: str
 ) -> None:
-    session = CopySession(photo_session, state_dummy.target, state_dummy.format)
+    session = DestinationDirectory(
+        source_directory, state_dummy.target, state_dummy.format
+    )
     destination = session.destination
     assert destination == state_dummy.target.path / expected_path
