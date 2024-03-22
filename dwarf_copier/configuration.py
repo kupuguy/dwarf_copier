@@ -27,7 +27,8 @@ from pydantic import (
 from pydantic_core import core_schema
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.models.destination_directory import DestinationDirectory
+from dwarf_copier.models.source_directory import SourceDirectory
 
 __all__ = ["config"]
 
@@ -106,7 +107,7 @@ class BaseDriver(ABC):
     def prepare(
         self,
         format: ConfigFormat,
-        session: SourceDirectory,
+        session: DestinationDirectory,
         target_path: Path,
     ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
         """Build maps of files to be copied or linked."""

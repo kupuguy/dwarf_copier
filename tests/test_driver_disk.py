@@ -9,8 +9,8 @@ from textual.app import App
 
 from dwarf_copier.configuration import BaseDriver
 from dwarf_copier.drivers import disk
-from dwarf_copier.shots_info import ShotsInfo
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.models.shots_info import ShotsInfo
+from dwarf_copier.models.source_directory import SourceDirectory
 
 pytestmark = pytest.mark.anyio
 

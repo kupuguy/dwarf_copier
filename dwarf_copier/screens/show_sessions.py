@@ -13,8 +13,9 @@ from textual.widgets.data_table import ColumnKey, RowKey
 
 from dwarf_copier.configuration import ConfigSource, config
 from dwarf_copier.drivers import disk
-from dwarf_copier.model import DestinationDirectory, State
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.model import State
+from dwarf_copier.models.destination_directory import DestinationDirectory
+from dwarf_copier.models.source_directory import SourceDirectory
 from dwarf_copier.widgets.prev_next import PrevNext
 from dwarf_copier.widgets.sortable_table import SortableDataTable
 
@@ -167,7 +168,18 @@ class ShowSessions(Screen[State]):
     @on(PrevNext.Next)
     def next_pressed(self) -> None:
         """Pressing 'next' dismisses this screen."""
-        self.dismiss(replace(self.state, selected=list(self.selected), ok=True))
+        self.dismiss(
+            replace(
+                self.state,
+                selected=[
+                    DestinationDirectory(
+                        source_dir, self.state.target, self.state.format
+                    )
+                    for source_dir in self.selected
+                ],
+                ok=True,
+            )
+        )
 
     @on(SessionFound)
     def session_found(self, msg: SessionFound) -> None:

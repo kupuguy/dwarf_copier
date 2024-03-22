@@ -16,6 +16,7 @@ from textual.widgets import Footer, Header, Log
 from dwarf_copier import configuration
 from dwarf_copier.configuration import ConfigTarget
 from dwarf_copier.model import State
+from dwarf_copier.models.destination_directory import DestinationDirectory
 from dwarf_copier.widgets.prev_next import PrevNext
 from dwarf_copier.widgets.session_summary import SessionSummary
 
@@ -37,7 +38,11 @@ class PreCopy(Screen[State]):
         yield Header()
         with VerticalScroll(classes="selected_sessions"):
             for index, ps in enumerate(self.state.selected):
-                yield SessionSummary(ps, self.state.source, id=f"session_{index}")
+                yield SessionSummary(
+                    ps,
+                    self.state.source,
+                    id=f"session_{index}",
+                )
         self.log_widget = Log()
         yield self.log_widget
         pn = PrevNext()
@@ -91,10 +96,12 @@ if __name__ == "__main__":
                 / "DWARF_RAW_Jupiter_EXP_0.0008_GAIN_0_2024-01-16-22-16-30-229",
                 source_path / "DWARF_RAW_M1_EXP_15_GAIN_80_2024-01-18-21-04-26-954",
             ]
-            selected = [
-                s for p in selected_paths if (s := driver.create_session(p)) is not None
-            ]
             format = configuration.config.get_format("Backup")
+            selected = [
+                DestinationDirectory(s, target, format)
+                for p in selected_paths
+                if (s := driver.create_session(p)) is not None
+            ]
             state = State(source, target, selected, format)
             screen = PreCopy(state)
             new_state = await self.app.push_screen_wait(screen=screen)

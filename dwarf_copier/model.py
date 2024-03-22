@@ -1,10 +1,9 @@
 """Data models."""
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from queue import Queue
-from string import Template
 from typing import Self
 
 from pydantic import BaseModel
@@ -15,27 +14,7 @@ from dwarf_copier.configuration import (
     ConfigTarget,
     ConfigTemplate,
 )
-from dwarf_copier.source_directory import SourceDirectory
-
-
-@dataclass
-class DestinationDirectory:
-    """PhotoSession bound to a target and format."""
-
-    source_directory: SourceDirectory
-    config_destination: ConfigTarget
-    config_format: ConfigFormat
-
-    @cached_property
-    def destination(self) -> Path:
-        """Compute destination path."""
-        dest_path = self.config_destination.path / self.source_directory.format(
-            self.config_format.path
-        )
-        return dest_path
-
-    def format(self, template: Template, name: str = "") -> str:
-        return self.source_directory.format(template, name)
+from dwarf_copier.models.destination_directory import DestinationDirectory
 
 
 @dataclass
@@ -44,19 +23,25 @@ class Specials:
 
     session: DestinationDirectory
     source: ConfigSource
-    target: ConfigTarget
-    format: ConfigFormat
     templates: list[ConfigTemplate]
+
+    target: ConfigTarget = field(init=False, repr=False)
+    format: ConfigFormat = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Initialise computed attributes."""
+        self.target = self.session.config_destination
+        self.format = self.session.config_format
 
     # @cache
     def destination(self, source: Path, template: ConfigTemplate) -> Path | None:
-        """Destination path for currently selected source."""
+        """Destination path based on source directory name."""
         base = self.session.destination
         return base / source
 
     @cached_property
     def candidates(self) -> set[Path]:
-        masks = [self.session.format(template) for template in self.templates]
+        masks = [self.session.format_filename(template) for template in self.templates]
         candidates: set[Path] = set()
         driver = self.source.driver
         for m in masks:
@@ -72,7 +57,7 @@ class Specials:
         the first mask that has a match. That way at least manual darks should take
         precedence over Dwarf automatic darks.
         """
-        masks = [self.session.format(template) for template in self.templates]
+        masks = [self.session.format_filename(template) for template in self.templates]
         driver = self.source.driver
         for m in masks:
             candidates = list(driver.match_wildcards(self.source.path, m))
@@ -87,14 +72,21 @@ class State:
 
     source: ConfigSource
     target: ConfigTarget
-    selected: list[SourceDirectory]
+    selected: list[DestinationDirectory]
     format: ConfigFormat
     ok: bool = False
 
     @classmethod
     def from_partial(cls, partial: "PartialState") -> Self:
-        if partial.is_complete():
-            return cls(**asdict(partial))
+        source = partial.source
+        target = partial.target
+        selected = partial.selected
+        format = partial.format
+        ok = partial.ok
+        if source is not None and target is not None and format is not None:
+            return cls(
+                source=source, target=target, selected=selected, format=format, ok=ok
+            )
         raise TypeError("Partial state is incomplete.")
 
 
@@ -104,7 +96,7 @@ class PartialState:
 
     source: ConfigSource | None = None
     target: ConfigTarget | None = None
-    selected: list[SourceDirectory] = field(default_factory=list)
+    selected: list[DestinationDirectory] = field(default_factory=list)
     format: ConfigFormat | None = None
     ok: bool = False
 
@@ -117,7 +109,16 @@ class PartialState:
 
     @classmethod
     def from_state(cls, state: "State") -> Self:
-        return cls(**asdict(state))
+        source = state.source
+        target = state.target
+        selected = state.selected
+        format = state.format
+        ok = state.ok
+        if source is not None and target is not None and format is not None:
+            return cls(
+                source=source, target=target, selected=selected, format=format, ok=ok
+            )
+        raise TypeError("Partial state is incomplete.")
 
 
 class QuitCommand(BaseModel):

@@ -20,14 +20,9 @@ from dwarf_copier.configuration import (
     ConfigurationModel,
     config,
 )
-from dwarf_copier.model import (
-    CommandQueue,
-    CopyCommand,
-    DestinationDirectory,
-    LinkCommand,
-    State,
-)
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.model import CommandQueue, CopyCommand, LinkCommand, State
+from dwarf_copier.models.destination_directory import DestinationDirectory
+from dwarf_copier.models.source_directory import SourceDirectory
 from dwarf_copier.widgets.copier import Copier, CopyGroup
 from dwarf_copier.widgets.prev_next import PrevNext
 
@@ -36,8 +31,8 @@ class CopyFiles(Screen[State]):
     """Screen to display sessions present on a source."""
 
     config: ConfigurationModel
-    selected: list[SourceDirectory]
-    sessions: dict[str, SourceDirectory]
+    selected: list[DestinationDirectory]
+    sessions: dict[str, DestinationDirectory]
     driver: BaseDriver
     queue: CommandQueue
     session: SourceDirectory | None
@@ -82,35 +77,47 @@ class CopyFiles(Screen[State]):
     @work
     async def copy_controller(
         self,
-        sessions: list[SourceDirectory],
+        sessions: list[DestinationDirectory],
         source: ConfigSource,
         target: ConfigTarget,
         format: ConfigFormat,
     ) -> None:
         copier = self.query_one("#copier", CopyGroup)
         try:
-            await self.copy_controller_impl(sessions, source, target, format)
+            await self.copy_controller_impl(sessions, source, format)
         finally:
             await copier.shutdown()
         self.dismiss(replace(self.state, ok=True))
 
     async def copy_controller_impl(
         self,
-        source_directories: list[SourceDirectory],
+        source_directories: list[DestinationDirectory],
         source: ConfigSource,
-        target: ConfigTarget,
         format: ConfigFormat,
     ) -> None:
-        for source_dir in source_directories:
+        """Copy files.
+
+        Copy from source directories to a destination directory using the provided
+        configuration source and format.
+
+        Args:
+            source_directories (list[DestinationDirectory]): The list of source
+                directories from which to copy.
+            source (ConfigSource): The configuration source.
+            format (ConfigFormat): The format of the configuration.
+
+        Returns:
+            None
+        """
+        for session in source_directories:
             self.trace("")
-            session = DestinationDirectory(source_dir, target, format)
             destination_path = session.destination
             destination_path.parent.mkdir(exist_ok=True, parents=True)
             self.trace(f"Final destination {destination_path}")
             working_path = Path(mkdtemp(dir=str(destination_path.parent)))
             try:
                 mkdirs, links, copies = source.driver.prepare(
-                    format, session.source_directory, working_path
+                    format, session, working_path
                 )
                 for md in mkdirs:
                     self.trace(f"mkdir {md}")

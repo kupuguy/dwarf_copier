@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Callable
 
 from dwarf_copier.configuration import BaseDriver, ConfigFormat
-from dwarf_copier.shots_info import ShotsInfo
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.models.destination_directory import DestinationDirectory
+from dwarf_copier.models.shots_info import ShotsInfo
+from dwarf_copier.models.source_directory import SourceDirectory
 
 FOLDER_PATTERN = (
     "DWARF_RAW_<target>_EXP_<exp>_GAIN_<gain>_"
@@ -70,22 +71,27 @@ class Driver(BaseDriver):
     def prepare(
         self,
         format: ConfigFormat,
-        session: SourceDirectory,
+        session: DestinationDirectory,
         target_path: Path,
     ) -> tuple[list[Path], dict[Path, str], dict[Path, str]]:
         """Build maps of files to be copied or linked."""
+        format = session.config_format
         mkdirs = [target_path / d for d in format.directories]
         links: dict[Path, str] = {}
         for op in format.link_or_copy:
-            for p in session.path.glob(op.source):
+            for p in session.source_directory.path.glob(op.source):
                 if p not in links:
-                    links[p] = session.format(op.destination, name=p.name)
+                    links[p] = session.source_directory.format_filename(
+                        op.destination, name=p.name
+                    )
 
         copies: dict[Path, str] = {}
         for op in format.copy_only:
-            for p in session.path.glob(op.source):
+            for p in session.source_directory.path.glob(op.source):
                 if p not in copies and p not in links:
-                    copies[p] = session.format(op.destination, name=p.name)
+                    copies[p] = session.source_directory.format_filename(
+                        op.destination, name=p.name
+                    )
 
         return mkdirs, links, copies
 

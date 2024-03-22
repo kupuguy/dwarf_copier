@@ -7,9 +7,10 @@ from textual.app import App
 
 from dwarf_copier.configuration import ConfigurationModel
 from dwarf_copier.model import State
+from dwarf_copier.models.destination_directory import DestinationDirectory
+from dwarf_copier.models.shots_info import ShotsInfo
+from dwarf_copier.models.source_directory import SourceDirectory
 from dwarf_copier.screens.copy_files import CopyFiles
-from dwarf_copier.shots_info import ShotsInfo
-from dwarf_copier.source_directory import SourceDirectory
 
 pytestmark = pytest.mark.anyio
 
@@ -63,11 +64,12 @@ async def test_copy_files(
     expected = [expected_target / "0000.fits"]
 
     async with app.run_test():
+        format = config_dummy.get_format(config_target.format)
         state = State(
             config_source,
             config_target,
-            selected,
-            config_dummy.get_format(config_target.format),
+            [DestinationDirectory(d, config_target, format) for d in selected],
+            format,
         )
         copy_screen = CopyFiles(state)
         await app.push_screen(

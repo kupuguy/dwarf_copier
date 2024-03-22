@@ -12,8 +12,9 @@ from dwarf_copier.configuration import (
     ConfigurationModel,
 )
 from dwarf_copier.model import State
-from dwarf_copier.shots_info import ShotsInfo
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.models.destination_directory import DestinationDirectory
+from dwarf_copier.models.shots_info import ShotsInfo
+from dwarf_copier.models.source_directory import SourceDirectory
 
 
 @pytest.fixture
@@ -145,10 +146,11 @@ def state_dummy(
     config = config_dummy
     source = config.sources[0]
     target = config.targets[0]
+    format = config.get_format(target.format)
     state = State(
         source=source,
         target=target,
-        selected=source_directories,
-        format=config.get_format(target.format),
+        selected=[DestinationDirectory(d, target, format) for d in source_directories],
+        format=format,
     )
     return state

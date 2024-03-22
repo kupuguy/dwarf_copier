@@ -2,8 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from dwarf_copier.model import DestinationDirectory, Specials, State
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.model import Specials, State
+from dwarf_copier.models.destination_directory import DestinationDirectory
+from dwarf_copier.models.source_directory import SourceDirectory
 
 
 @pytest.fixture
@@ -57,8 +58,6 @@ def test_darks(
     special = Specials(
         DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
-        state_dummy.target,
-        state_dummy.format,
         state_dummy.source.darks,
     )
     assert special.candidates == expected_paths
@@ -79,8 +78,6 @@ def test_biases(
     special = Specials(
         DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
-        state_dummy.target,
-        state_dummy.format,
         state_dummy.source.biases,
     )
     assert special.candidates == expected_paths
@@ -108,8 +105,6 @@ def test_flats(
     special = Specials(
         DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
-        state_dummy.target,
-        state_dummy.format,
         state_dummy.source.flats,
     )
     assert special.candidates == expected_paths
@@ -133,8 +128,6 @@ def test_best_candidate(
     special = Specials(
         DestinationDirectory(source_directory, state_dummy.target, state_dummy.format),
         state_dummy.source,
-        state_dummy.target,
-        state_dummy.format,
         state_dummy.source.darks,
     )
     assert special.best_candidate == expected_path

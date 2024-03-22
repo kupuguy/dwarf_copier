@@ -5,7 +5,7 @@ from string import Template
 
 from pydantic import BaseModel, Field
 
-from dwarf_copier.shots_info import ShotsInfo
+from dwarf_copier.models.shots_info import ShotsInfo
 
 
 class SourceDirectory(BaseModel):
@@ -29,7 +29,7 @@ class SourceDirectory(BaseModel):
         default=None, description="Flats (optional, must be taken manually)"
     )
 
-    def format(self, template: Template, name: str = "") -> str:
+    def format_filename(self, template: Template, name: str = "") -> str:
         # TODO: make this lazier
         d = {
             "bin": "1" if self.info.binning == "1*1" else "2",

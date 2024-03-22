@@ -10,7 +10,8 @@ from textual.widget import Widget
 from textual.widgets import Button, DirectoryTree, Label, Static
 
 from dwarf_copier.configuration import ConfigSource
-from dwarf_copier.source_directory import SourceDirectory
+from dwarf_copier.model import Specials
+from dwarf_copier.models.destination_directory import DestinationDirectory
 
 
 class FilteredDirectoryTree(DirectoryTree):
@@ -179,7 +180,7 @@ class SessionSummary(Widget):
 
     def __init__(
         self,
-        session: SourceDirectory,
+        session: DestinationDirectory,
         source: ConfigSource,
         name: str | None = None,
         id: str | None = None,
@@ -189,20 +190,44 @@ class SessionSummary(Widget):
         self.session = session
         self.source_path = source.path
         self.source = source
+        self.darks_special = Specials(session, source, source.darks)
+        self.flats_special = Specials(session, source, source.flats)
+        self.biases_special = Specials(session, source, source.biases)
+
         super().__init__(name=name, id=id, classes=classes, disabled=disabled)
 
     def compose(self) -> ComposeResult:
         """Create the widgets."""
         with Container(classes="single_session"):
+            self.session.darks = (
+                self.darks_special.best_candidate
+                if self.session.darks is None
+                else self.session.darks
+            )
+            self.session.flats = (
+                self.flats_special.best_candidate
+                if self.session.flats is None
+                else self.session.flats
+            )
+            self.session.biases = (
+                self.biases_special.best_candidate
+                if self.session.biases is None
+                else self.session.biases
+            )
+
             yield Label("Copy")
-            yield Static(str(self.session.path))
+            yield Static(str(self.session.source_directory.path))
             yield Label("To")
-            yield Static("...")
+            yield Static(str(self.session.destination))
+
             dark_masks = [
-                self.session.format(template) for template in self.source.darks
+                self.session.format_filename(template) for template in self.source.darks
             ]
             yield DirSelector(
-                "Darks", self.session.darks, self.source_path, masks=dark_masks
+                "Darks",
+                self.session.darks,
+                self.source_path,
+                masks=dark_masks,
             )
-            yield DirSelector("Flats", self.session.darks, self.source_path)
-            yield DirSelector("Biases", self.session.darks, self.source_path)
+            yield DirSelector("Flats", self.session.flats, self.source_path)
+            yield DirSelector("Biases", self.session.biases, self.source_path)
